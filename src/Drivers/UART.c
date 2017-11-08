@@ -61,7 +61,7 @@ static void USART_Config(void)
   USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
   
   UART_COMInit(UART_USB, &USART_InitStructure);
-	//UART_COMInit(UART_PCB, &USART_InitStructure);
+	UART_COMInit(UART_PCB, &USART_InitStructure);
 	
 
 }
