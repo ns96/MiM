@@ -16,6 +16,7 @@
 #define BLDC_PWM_CLOCK_BASE			SystemCoreClock				//FG timer base clock frequency
 #define BLDC_PWM_TIMER_FREQ			BLDC_PWM_CLOCK_BASE 	//TIMx PWM timer frequency
 #define BLDC_PWM_FREQ						8000 									//Required PWM signal frequency
+#define	BLDC_STARTUP_PWM				50										//PWM to be set at motor startup (0 - 100); 0 - do not use BLDC_STARTUP_PWM
 
 //Exported definitions
 typedef enum {
@@ -25,7 +26,7 @@ typedef enum {
 
 //Exported functions
 	uint8_t BLDC_init(void); //Must be called from initialization section
-	void 	BLDC_FG_PulseDetected(void); //Must be called in corresponding Input Capture interrupt
+	uint8_t 	BLDC_FG_PulseDetected(void); //Must be called in corresponding Input Capture interrupt
 	void	BLDC_FG_PulseMissing(void); //Must be called in corresponding Timer Update interrupt
 	uint8_t BLDC_RPM_control(void); //Must be called every 100 ms (or other period - depends on application)
 

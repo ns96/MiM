@@ -49,7 +49,6 @@ static volatile uint32_t Timer100ms;
   * @brief  Systick interrupt handler
   */
 void SYSTICK_Callback(void){
-
 	if (++Timer100ms == 100){
 		Timer100ms = 0;
 		Tick100ms++;
