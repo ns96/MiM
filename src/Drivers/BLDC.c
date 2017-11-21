@@ -11,6 +11,7 @@
 	static volatile uint32_t BLDC_RPM_target = 0;
 	static volatile uint16_t FGPeriod = 0; //Period of FG signal
 	static volatile uint32_t motorHalted_cnt=0;
+	static volatile uint32_t loopCount = 0; //Used to remain in startupMode for 1 second to smooth out starting at low rpms
 	//If FGPeriod averaging is going to be used
 	#if BLDC_FG_AVERAGING_COUNT != 0
 	static uint8_t  FGPeriodHistInd = 0, FGPeriodHistCnt = 0; //History of pulse length required for averaging: index in array and registered pulses count
@@ -157,7 +158,13 @@ uint8_t BLDC_RPM_control(void){
 			else if ((BLDC_RPM_target  + (BLDC_RPM_ADJUSTEMT_STEP)) < RPM_Act){
 				//BLDC startup mode
 				if (BLDC_Startup_Mode == true){
-					BLDC_Startup_Mode = false; //Required RPM achieved, switch to normal mode
+					// make sure this code runs for 10 seconds to smooth out motor start
+					loopCount++;
+					if(loopCount >= 10) {
+						loopCount = 0;
+						BLDC_Startup_Mode = false; //Required RPM achieved, switch to normal mode
+					}
+					
 					PWM_Pulse = RPM2PWM(BLDC_RPM_target); //calculate requested PWM pulse length based on target RPM
 				}
 				//BLDC normal mode
@@ -340,9 +347,17 @@ static inline uint16_t FG2RPM (uint16_t FGPeriod){
  *
  */
 static inline uint32_t  RPM2PWM(uint32_t rpm){
-	uint32_t pwm=rpm*10000/93848;
+	//uint32_t pwm=rpm*10000/93848;
+	uint32_t pwm=(rpm + BLDC_INTERCEPT)/BLDC_SLOPE;
+	
+	// check to make sure we not setting the rpm to a point where the motor
+	// would fail to spin and just set pwm to zero to prevent motor auto protection
+	if(rpm<(BLDC_RPM_MIN))
+		pwm=0;
+	
 	if (pwm>1000) 
 		pwm=1000;
+	
 	return pwm;
 	
 /** alternative calculation method with formula PWM = (RPM / RPM_DUTY_K) + RPM_DUTY_X0
