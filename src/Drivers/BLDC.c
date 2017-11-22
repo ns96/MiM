@@ -223,7 +223,6 @@ uint8_t BLDC_setRPM(uint32_t rpm){
 	
 	//calculate new PWM pulse length for requested RPM
 	pwm = RPM2PWM(rpm);
-	if(pwm == 0) return 1;
 
 	/********* Startup mode *******
 	*	BLDC_STARTUP_PWM will be held until required RPM will be achieved
@@ -231,7 +230,7 @@ uint8_t BLDC_setRPM(uint32_t rpm){
 	*	Remark:	Reading BLDC_getRPM() instead of BLDC_RPM_target is not recommended because 
 	*					actual RPM values might be falsified during BLDC power switching
 	*/
-	if (((BLDC_STARTUP_PWM * 10) > pwm) && (BLDC_RPM_target == 0)) { 
+	if (((BLDC_STARTUP_PWM * 10) > pwm) && (BLDC_RPM_target == 0) && (pwm != 0)) { 
 		//Set startup PWM pulse length
 		pwm = BLDC_STARTUP_PWM * 10; //Internal PWM values are 0 - 1000
 		//Set BLDC startup flag to for later processing
