@@ -160,7 +160,7 @@ uint8_t BLDC_RPM_control(void){
 				if (BLDC_Startup_Mode == true){
 					// make sure this code runs for 10 seconds to smooth out motor start
 					loopCount++;
-					if(loopCount >= 10) {
+					if(loopCount >= 5) {
 						loopCount = 0;
 						BLDC_Startup_Mode = false; //Required RPM achieved, switch to normal mode
 					}
@@ -223,6 +223,7 @@ uint8_t BLDC_setRPM(uint32_t rpm){
 	
 	//calculate new PWM pulse length for requested RPM
 	pwm = RPM2PWM(rpm);
+	if(pwm == 0) return 1;
 
 	/********* Startup mode *******
 	*	BLDC_STARTUP_PWM will be held until required RPM will be achieved
@@ -352,7 +353,7 @@ static inline uint32_t  RPM2PWM(uint32_t rpm){
 	
 	// check to make sure we not setting the rpm to a point where the motor
 	// would fail to spin and just set pwm to zero to prevent motor auto protection
-	if(rpm<(BLDC_RPM_MIN))
+	if(rpm < (BLDC_RPM_MIN))
 		pwm=0;
 	
 	if (pwm>1000) 

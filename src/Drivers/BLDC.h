@@ -16,7 +16,7 @@
 #define BLDC_PWM_CLOCK_BASE			SystemCoreClock				//FG timer base clock frequency
 #define BLDC_PWM_TIMER_FREQ			BLDC_PWM_CLOCK_BASE 	//TIMx PWM timer frequency
 #define BLDC_PWM_FREQ						8000 									//Required PWM signal frequency
-#define	BLDC_STARTUP_PWM				20										//PWM to be set at motor startup (0 - 100); 0 - do not use BLDC_STARTUP_PWM
+#define	BLDC_STARTUP_PWM				10										//PWM to be set at motor startup (0 - 100); 0 - do not use BLDC_STARTUP_PWM
 // MOTOR PROFILE
 #define BLDC_SLOPE							9.5							// 8.2 Set the motor profile slope for estimating PWM based on RPM
 #define BLDC_INTERCEPT					444							// Set the motor profile intercept for estimating PWM based on RPM
