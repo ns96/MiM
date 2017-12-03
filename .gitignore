@@ -1,1 +1,3 @@
 *.o
+/MDK-ARM/STM32F051/*.crf
+/MDK-ARM/STM32F051/*.d
