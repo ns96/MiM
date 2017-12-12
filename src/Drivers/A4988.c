@@ -7,11 +7,12 @@
 static TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 static TIM_OCInitTypeDef  			TIM_OCInitStructure;
 static volatile uint32_t	STEP_steps_requested = 0, STEP_steps_moved = 0;	//Steps requested and moved
-static volatile uint32_t	STEP_PWM_freq = STEP_DEF_FREQ;	//Motor PWM frequency
+static volatile uint32_t	STEP_PWM_freq = STEP_DEF_FREQ, STEP_PWM_Actual_freq = 0;	//Motor PWM frequency
 static volatile uint32_t	STEP_StepPDist = STEP_DEF_STEPS_PER_DIST;	//Steps per Distes value
 
 //---------------  Internal functions prototypes -------------------
 static void STEP_GPIO_Config(void);
+static uint8_t STEP_Set_Timer_PWM(uint32_t freq);
 static void STEP_Stop(void);
 static void STEP_PWM_Config(void);
 
@@ -51,8 +52,17 @@ void STEP_PWM_Completed(void){
 			//Turn on LED
 			LED_Set(LED_GREEN, LED_BLINK);
 		
-			//Generate another step
-			TIM_Cmd(STEP_PWM_TIMER, ENABLE); 
+			/* Different PWM frequency was requested
+			*	 Change it before generating another step
+			*/
+			if (STEP_PWM_Actual_freq != STEP_PWM_freq){
+				STEP_Set_Timer_PWM(STEP_PWM_freq);
+			} 
+			//Just generate another step
+			else {				
+				TIM_Cmd(STEP_PWM_TIMER, ENABLE);  //Turn on timer
+			}
+		
 			STEP_steps_moved++;
 	} else {
 		STEP_Stop();
@@ -77,21 +87,14 @@ uint32_t STEP_Move(uint32_t Steps){
 	
 	//Start moving only if parameters are set
 	if ((Steps != 0) && (STEP_PWM_freq != 0)) 
-	{		
-		uint32_t NewPeriod = 0;
-				
+	{						
 		//request Steps
 		STEP_steps_requested = Steps;	
 		STEP_steps_moved = 0;
-			
-		//Calculate and change period
-		NewPeriod = STEP_PWM_TIMER_FREQ / STEP_PWM_freq;
 		
-		//Set PWM frequency with 50% duty
-		TIM_TimeBaseStructure.TIM_Period = (uint16_t) NewPeriod; // set period duration
-		TIM_TimeBaseInit(STEP_PWM_TIMER, &TIM_TimeBaseStructure);// reinititialise timer with new period value
-		TIM_OCInitStructure.TIM_Pulse = (uint16_t) (NewPeriod / 2); // set pulse duration (50% Duty)
-		TIM_OC1Init(STEP_PWM_TIMER, &TIM_OCInitStructure); //reinititialise output compare register
+		//Set desired frequency
+		STEP_Set_Timer_PWM(STEP_PWM_freq);
+			
 	} else {
 		STEP_Stop(); //Stop moving motor
 		return 0;
@@ -335,6 +338,26 @@ STEP_DirectionTypeDef STEP_GetDirection(void){
 /** *****************************************
 *				Internal Functions									
 ****************************************** */
+
+/**
+  * @brief  Set PWM Timer parameters to generate required frequency
+  * @param  freq - required PWM frequency
+  * @retval Status - 1 if OK
+  */
+static uint8_t STEP_Set_Timer_PWM(uint32_t freq){
+		//Calculate new period
+		uint32_t NewPeriod = STEP_PWM_TIMER_FREQ / freq;
+	
+		//Store actual PWM frequency
+		STEP_PWM_Actual_freq = freq;
+		
+		//Set PWM frequency with 50% duty
+		TIM_TimeBaseStructure.TIM_Period = (uint16_t) NewPeriod; // set period duration
+		TIM_TimeBaseInit(STEP_PWM_TIMER, &TIM_TimeBaseStructure);// reinititialise timer with new period value
+		TIM_OCInitStructure.TIM_Pulse = (uint16_t) (NewPeriod / 2); // set pulse duration (50% Duty)
+		TIM_OC1Init(STEP_PWM_TIMER, &TIM_OCInitStructure); //reinititialise output compare register
+		return 1;
+}
 /**
   * @brief  Stop moving motor
   * @param  None

@@ -51,14 +51,20 @@
 		#define UART_CMD_GetVersion "GetVersion"
 		
 		/*		BLDC control			*/
-		#define UART_CMD_BLDCon 		"BLDCon"
-		#define UART_CMD_BLDCoff 		"BLDCoff"
-		#define UART_CMD_BLDCSetRPM "SetRPM"
-		#define UART_CMD_BLDCGetRPM "GetRPM"
-		#define UART_CMD_BLDCSetPWM "SetPWM"
-		#define UART_CMD_BLDCGetPWM "GetPWM"
-		#define UART_CMD_SetDIR 		"SetDIR"
-		#define UART_CMD_GetDIR 		"GetDIR"
+		#define UART_CMD_BLDCon 					"BLDCon"
+		#define UART_CMD_BLDCoff 					"BLDCoff"
+		#define UART_CMD_BLDCSetRPM 			"SetRPM"
+		#define UART_CMD_BLDCGetRPM 			"GetRPM"
+		#define UART_CMD_BLDCSetPWM 			"SetPWM"		//PWM value: 0 - 1000
+		#define UART_CMD_BLDCGetPWM 			"GetPWM"		//PWM value: 0 - 1000
+		#define UART_CMD_BLDCSetStartPWM 	"SetStartPWM"
+		#define UART_CMD_BLDCGetStartPWM 	"GetStartPWM"
+		#define UART_CMD_BLDCSetSlope 		"SetSlope" //Set slope value multiplied by 100
+		#define UART_CMD_BLDCGetSlope 		"GetSlope" //Get slope value multiplied by 100
+		#define UART_CMD_BLDCSetIntercept "SetIntercept"
+		#define UART_CMD_BLDCGetIntercept "GetIntercept"
+		#define UART_CMD_SetDIR 					"SetDIR"
+		#define UART_CMD_GetDIR 					"GetDIR"
 		
 		/*		STEP control			*/
 		#define UART_CMD_STEPon 				"STEPon"

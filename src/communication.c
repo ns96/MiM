@@ -136,10 +136,14 @@ void communication_callback(void){
 			//------------------------- Set PWM ----------------------------------------
 			if cmd_is(UART_CMD_BLDCSetPWM){
 				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetPWM)-1],",%d",&a)==1){
-					if (BLDC_setPWM(a) == 1)
-						sprintf(Response, "OK,%d",a);
-					else 
-						sprintf(Response, "ERR,%d", CMD_INVALID_STATE);
+					if (a > 1000)
+						sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					else {	
+						if (BLDC_setPWM(a) == 1)
+							sprintf(Response, "OK,%d",a);
+						else 
+							sprintf(Response, "ERR,%d", CMD_INVALID_STATE);
+					}
 					comm_print_cmd(Response);
 				}
 				else
@@ -152,6 +156,68 @@ void communication_callback(void){
 			//------------------------- Get PWM ----------------------------------------
 			if cmd_is(UART_CMD_BLDCGetPWM){
 					sprintf(Response, "OK,%d",BLDC_getPWM());
+					comm_print_cmd(Response);
+			}
+			else
+			//------------------------- Set StartupPWM ----------------------------------------
+			if cmd_is(UART_CMD_BLDCSetStartPWM){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetStartPWM)-1],",%d",&a)==1){
+					if (BLDC_setStartupPWM(a) == 1)
+						sprintf(Response, "OK,%d",a);
+					else 
+						sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					comm_print_cmd(Response);
+				}
+				else
+				{
+					sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					comm_print_cmd(Response);
+				}
+			}
+			else
+			//------------------------- Get StartupPWM ----------------------------------------
+			if cmd_is(UART_CMD_BLDCGetStartPWM){
+					sprintf(Response, "OK,%d",BLDC_getStartupPWM());
+					comm_print_cmd(Response);
+			}
+			else
+			//------------------------- Set Slope ----------------------------------------
+			if cmd_is(UART_CMD_BLDCSetSlope){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetSlope)-1],",%d",&a)==1){
+					BLDC_setSlope(a);
+					sprintf(Response, "OK,%d",a);
+					comm_print_cmd(Response);
+				}
+				else
+				{
+					sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					comm_print_cmd(Response);
+				}
+			}
+			else
+			//------------------------- Get Slope ----------------------------------------
+			if cmd_is(UART_CMD_BLDCGetSlope){
+					sprintf(Response, "OK,%d",BLDC_getSlope());
+					comm_print_cmd(Response);
+			}
+			else
+			//------------------------- Set Intercept ----------------------------------------
+			if cmd_is(UART_CMD_BLDCSetIntercept){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetIntercept)-1],",%d",&a)==1){
+					BLDC_setIntercept(a);
+					sprintf(Response, "OK,%d",a);
+					comm_print_cmd(Response);
+				}
+				else
+				{
+					sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					comm_print_cmd(Response);
+				}
+			}
+			else
+			//------------------------- Get Intercept ----------------------------------------
+			if cmd_is(UART_CMD_BLDCGetIntercept){
+					sprintf(Response, "OK,%d",BLDC_getIntercept());
 					comm_print_cmd(Response);
 			}
 			else

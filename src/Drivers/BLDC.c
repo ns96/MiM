@@ -7,11 +7,14 @@
 //-------------- private variables -------------
 	GPIO_InitTypeDef        GPIO_InitStructure;
 	TIM_OCInitTypeDef  			TIM_OCInitStructure;
-	static volatile bool RPM_Adjust_requested = false, BLDC_Startup_Mode = false;
+	static volatile bool RPM_Adjust_requested = false, BLDC_Startup_Mode = false, Skip_FG_Pulse = false;
 	static volatile uint32_t BLDC_RPM_target = 0;
 	static volatile uint16_t FGPeriod = 0; //Period of FG signal
 	static volatile uint32_t motorHalted_cnt=0;
 	static volatile uint32_t loopCount = 0; //Used to remain in startupMode for 1 second to smooth out starting at low rpms
+	static volatile uint32_t BLDC_Startup_PWM = BLDC_STARTUP_PWM_DEF;		//Default PWM to be set at motor startup
+	static volatile uint32_t BLDC_Slope = BLDC_SLOPE_DEF;			//Motor profile parameter
+	static volatile uint32_t BLDC_Intercept = BLDC_INTERCEPT_DEF; //Motor profile parameter
 	//If FGPeriod averaging is going to be used
 	#if BLDC_FG_AVERAGING_COUNT != 0
 	static uint8_t  FGPeriodHistInd = 0, FGPeriodHistCnt = 0; //History of pulse length required for averaging: index in array and registered pulses count
@@ -21,6 +24,7 @@
 //---------------  Internal functions prototypes -------------------
 	static inline uint16_t FG2RPM (uint16_t FGPeriod);
 	static inline uint32_t  RPM2PWM(uint32_t rpm);
+	static uint8_t BLDC_setTimerPWM(uint32_t pwm);
 	static void BLDC_GPIO_Config(void);
 	static void TIM_FG_Config(void);
 	static void TIM_PWM_Config(void);
@@ -60,7 +64,7 @@ void BLDC_FG_PulseMissing(void){
 		//No signs of motor spinning for ~10seconds?
 		if (++motorHalted_cnt>10){
 			//Set motor control values to defaults
-			BLDC_setPWM(0);
+			BLDC_setTimerPWM(0);
 			BLDC_RPM_target=0;
 			//Turn off power for motor
 			BLDC_powerOff();
@@ -76,39 +80,52 @@ void BLDC_FG_PulseMissing(void){
  * 				Must be called in corresponding Input Capture interrupt
  */
 uint8_t BLDC_FG_PulseDetected(void){
+		uint16_t CapturedValue = 0;
+		
 		motorHalted_cnt=0;
-		//Start blinking LED
-		LED_Set(LED_GREEN, LED_BLINK);
 	
 		//Read current pulse value
-		FGPeriod = TIM_GetCapture1(BLDC_FG_TIMER);
+		CapturedValue = TIM_GetCapture1(BLDC_FG_TIMER);
 		//reset timer for new pulse detection
 		TIM_SetCounter(BLDC_FG_TIMER, 0);
 	
-		//If FGPeriod averaging is enabled
+		//Ignore first FG pulse. Fake pulse is generated when motor's power is switched
+		if (Skip_FG_Pulse) {
+			Skip_FG_Pulse = false;
+			return 0;
+		} else {				
+			//Start blinking LED
+			LED_Set(LED_GREEN, LED_BLINK);
+				
+			//set new FGPeriod value
+			FGPeriod = CapturedValue;
+			
+			//If FGPeriod averaging is enabled
 #if BLDC_FG_AVERAGING_COUNT != 0
-		uint8_t cnt1;
-		uint32_t TotalLength = 0;
-		//store current value
-		FGPeriodHist[FGPeriodHistInd] = FGPeriod;
+			uint8_t cnt1;
+			uint32_t TotalLength = 0;
+			//store current value
+			FGPeriodHist[FGPeriodHistInd] = FGPeriod;
 
-		//recalculate index
-		if ((FGPeriodHistCnt) < (BLDC_FG_AVERAGING_COUNT)) FGPeriodHistCnt++; //increase used array size if it is not full at the moment
-		FGPeriodHistInd++;
-		if (FGPeriodHistInd >= FGPeriodHistCnt) FGPeriodHistInd = 0;
+			//recalculate index
+			if ((FGPeriodHistCnt) < (BLDC_FG_AVERAGING_COUNT)) FGPeriodHistCnt++; //increase used array size if it is not full at the moment
+			FGPeriodHistInd++;
+			if (FGPeriodHistInd >= FGPeriodHistCnt) FGPeriodHistInd = 0;
 
-		//get new pulse length
-		for (cnt1 = 0; cnt1 < FGPeriodHistCnt; cnt1++) {
-				TotalLength += FGPeriodHist[cnt1];
-		}
-		FGPeriod = (uint16_t) (TotalLength / FGPeriodHistCnt);
+			//get new pulse length
+			for (cnt1 = 0; cnt1 < FGPeriodHistCnt; cnt1++) {
+					TotalLength += FGPeriodHist[cnt1];
+			}
+			FGPeriod = (uint16_t) (TotalLength / FGPeriodHistCnt);
 #endif //BLDC_FG_AVERAGING_COUNT
+			
+			/* Perform BLDC motor RPM correction only when FG pulse is received.
+				 Reduces overshooting at low RPM */
+			RPM_Adjust_requested = true;
+			// Adjust RPM at every FG pulse in BLDC startup mode (not every 100 ms as in normal mode)
+			if (BLDC_Startup_Mode == true) {return BLDC_RPM_control();}
+		}
 		
-		/* Perform BLDC motor RPM correction only when FG pulse is received.
-			 Reduces overshooting at low RPM */
-		RPM_Adjust_requested = true;
-		// Adjust RPM at every FG pulse in BLDC startup mode (not every 100 ms as in normal mode)
-		if (BLDC_Startup_Mode == true) {return BLDC_RPM_control();}
 		return 1;
 }
 
@@ -118,8 +135,9 @@ uint8_t BLDC_FG_PulseDetected(void){
  */
 uint8_t BLDC_RPM_control(void){
 	uint32_t RPM_Act = 0;
-	//Print out BLDC RPM, PWM timer value, FGPeriod for debugging
-	//printf("RPM: %d, %d, %d, %d\r\n", BLDC_RPM_target, BLDC_getRPM(),  TIM_GetCapture2(BLDC_PWM_TIMER), BLDC_getFGPeriod());
+	//Print out BLDC RPM, PWM timer value, FGPeriod and other for debugging
+	//printf("RPM: %d, %d, %d, %d, %d\r\n", BLDC_RPM_target, BLDC_getRPM(),  TIM_GetCapture2(BLDC_PWM_TIMER), BLDC_getFGPeriod(), motorHalted_cnt);
+	//printf("BLDC: %d, %d, %d\r\n", BLDC_Startup_PWM, BLDC_Slope,  BLDC_Intercept);
 	
 	
 	//If adjusment is requested and motor is turned on
@@ -189,9 +207,9 @@ uint8_t BLDC_RPM_control(void){
  * \brief Turns on power for BLDC motor
  */
 uint8_t BLDC_powerOn(void){
-	//Reset value. It might be left unreset from previous operation if FGPeriod timer has not expired yet
-	FGPeriod = 0; 
-	GPIO_SetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN);
+	FGPeriod = 0; //Reset value. It might be left unreset from previous operation if FGPeriod timer has not expired yet
+	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
+	GPIO_SetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
 	return 1;
 }
 
@@ -199,9 +217,10 @@ uint8_t BLDC_powerOn(void){
  * \brief Turns off the power for BLDC motor
  */
 uint8_t BLDC_powerOff(void){
-	BLDC_RPM_target = 0;
-	BLDC_setPWM(0);
-	GPIO_ResetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN);
+	BLDC_RPM_target = 0;  //Request RPM = 0
+	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
+	BLDC_setTimerPWM(0);				//Stop PWM generation
+	GPIO_ResetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
 	return 1;
 }
 
@@ -230,15 +249,15 @@ uint8_t BLDC_setRPM(uint32_t rpm){
 	*	Remark:	Reading BLDC_getRPM() instead of BLDC_RPM_target is not recommended because 
 	*					actual RPM values might be falsified during BLDC power switching
 	*/
-	if (((BLDC_STARTUP_PWM * 10) > pwm) && (BLDC_RPM_target == 0) && (pwm != 0)) { 
+	if (((BLDC_Startup_PWM * 10) > pwm) && (BLDC_RPM_target == 0) && (pwm != 0)) { 
 		//Set startup PWM pulse length
-		pwm = BLDC_STARTUP_PWM * 10; //Internal PWM values are 0 - 1000
+		pwm = BLDC_Startup_PWM * 10; //Internal PWM values are 0 - 1000
 		//Set BLDC startup flag to for later processing
 		BLDC_Startup_flag = true;
 	}
 	
 	//set new PWM
-	if (BLDC_setPWM(pwm) != 0){
+	if (BLDC_setTimerPWM(pwm) != 0){
 		//New PWM was set successfully
 		//store requested rpm globaly for rpm adjusment routine
 		BLDC_RPM_target = rpm;
@@ -253,22 +272,13 @@ uint8_t BLDC_setRPM(uint32_t rpm){
 }
 
 /**
- * \brief Sets the PWM width for BLDC motor and starts or stops corresponding timer
- * \param rpm		The PWM width value
+ * \brief Sets the PWM width for BLDC motor and starts it
+ * \param rpm		The PWM width value 0 - 1000
  *
  */
 uint8_t BLDC_setPWM(uint32_t pwm){
-	//motor is not turned on
-	if (BLDC_getPower() == 0) {
-		//Stop PWM
-		TIM_OCInitStructure.TIM_Pulse = 0;
-		TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
-		return 0;
-	}
-	
-	TIM_OCInitStructure.TIM_Pulse = (uint16_t) pwm;
-  TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
-	return 1;
+	BLDC_RPM_target = 0;  //Exit RPM control mode to keep requested PWM
+	return BLDC_setTimerPWM(pwm);
 }
 
 /**
@@ -283,13 +293,13 @@ uint32_t BLDC_getRPM(void){
  * \return pwm		The PWM duty cycle value of PWM timer
  *
  */
-uint8_t BLDC_getPWM(){
-	uint8_t Duty;
+uint32_t BLDC_getPWM(){
+	uint32_t Duty;
 	uint32_t Pulse, Period;
 	
 	Period = BLDC_PWM_TIMER_FREQ / BLDC_PWM_FREQ;
 	Pulse = TIM_GetCapture2(BLDC_PWM_TIMER);
-	Duty = (uint8_t)((Pulse * 100) / Period);
+	Duty = (uint32_t)((Pulse * 1000) / Period);
 	return Duty;
 }
 
@@ -323,6 +333,59 @@ BLDC_DirectionTypeDef BLDC_GetDirection(void){
 		return BLDC_CLOCKWISE;
 }
 
+/**
+ * \brief Set StartupPWM of BLDC motor.
+ * \param pwm		The PWM width value (0 - 100). 0 - do not use StartupPWM function
+ */
+uint8_t BLDC_setStartupPWM(uint32_t pwm){
+	if (pwm > 100) 
+		return 0;
+	BLDC_Startup_PWM = pwm;
+	return 1;
+}
+
+/**
+*  \brief Returns the StartupPWM value
+*	 \retval StartupPWM value
+ */
+uint32_t BLDC_getStartupPWM(void){
+	return BLDC_Startup_PWM;
+}
+
+
+/**
+ * \brief Set StartupPWM of BLDC motor.
+ * \param pwm		The PWM width value (0 - 100). 0 - do not use StartupPWM function
+ */
+uint8_t BLDC_setSlope(uint32_t slope){
+	BLDC_Slope = slope;
+	return 1;
+}
+
+/**
+*  \brief Returns the StartupPWM value
+*	 \retval StartupPWM value
+ */
+uint32_t BLDC_getSlope(void){
+	return BLDC_Slope;
+}
+
+/**
+ * \brief Set StartupPWM of BLDC motor.
+ * \param pwm		The PWM width value (0 - 100). 0 - do not use StartupPWM function
+ */
+uint8_t BLDC_setIntercept(uint32_t intercept){
+	BLDC_Intercept = intercept;
+	return 1;
+}
+
+/**
+*  \brief Returns the StartupPWM value
+*	 \retval StartupPWM value
+ */
+uint32_t BLDC_getIntercept(void){
+	return BLDC_Intercept;
+}
 /** *****************************************
 *				Internal Functions									
 ****************************************** */
@@ -348,7 +411,7 @@ static inline uint16_t FG2RPM (uint16_t FGPeriod){
  */
 static inline uint32_t  RPM2PWM(uint32_t rpm){
 	//uint32_t pwm=rpm*10000/93848;
-	uint32_t pwm=(rpm + BLDC_INTERCEPT)/BLDC_SLOPE;
+	uint32_t pwm=((rpm + BLDC_Intercept) * 100) / BLDC_Slope; //Multiply value by 100 because BLDC_Slope parameter is also multiplied
 	
 	// check to make sure we not setting the rpm to a point where the motor
 	// would fail to spin and just set pwm to zero to prevent motor auto protection
@@ -373,6 +436,25 @@ static inline uint32_t  RPM2PWM(uint32_t rpm){
 //	return (uint16_t) Pulse;
 }
 
+
+/**
+ * \brief Sets the PWM width for BLDC motor timer and starts it
+ * \param rpm		The PWM width value 0 - 1000
+ *
+ */
+static uint8_t BLDC_setTimerPWM(uint32_t pwm){
+	//motor is not turned on
+	if (BLDC_getPower() == 0) {
+		//Stop PWM
+		TIM_OCInitStructure.TIM_Pulse = 0;
+		TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
+		return 0;
+	}
+	
+	TIM_OCInitStructure.TIM_Pulse = (uint16_t) pwm;
+  TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
+	return 1;
+}
 
 /**
   * @brief  Configure the GPIO.

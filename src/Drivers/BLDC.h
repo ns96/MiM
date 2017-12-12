@@ -16,10 +16,10 @@
 #define BLDC_PWM_CLOCK_BASE			SystemCoreClock				//FG timer base clock frequency
 #define BLDC_PWM_TIMER_FREQ			BLDC_PWM_CLOCK_BASE 	//TIMx PWM timer frequency
 #define BLDC_PWM_FREQ						8000 									//Required PWM signal frequency
-#define	BLDC_STARTUP_PWM				10										//PWM to be set at motor startup (0 - 100); 0 - do not use BLDC_STARTUP_PWM
+#define	BLDC_STARTUP_PWM_DEF				10								//Default PWM to be set at motor startup (0 - 100); 0 - do not use BLDC_STARTUP_PWM
 // MOTOR PROFILE
-#define BLDC_SLOPE							9.5							// 8.2 Set the motor profile slope for estimating PWM based on RPM
-#define BLDC_INTERCEPT					444							// Set the motor profile intercept for estimating PWM based on RPM
+#define BLDC_SLOPE_DEF							950							// 820 Set the motor profile default slope * 100 for estimating PWM based on RPM
+#define BLDC_INTERCEPT_DEF					444							// Set the motor profile default intercept for estimating PWM based on RPM
 
 
 //Exported definitions
@@ -35,12 +35,18 @@ typedef enum {
 	uint8_t BLDC_RPM_control(void); //Must be called every 100 ms (or other period - depends on application)
 
 	uint8_t BLDC_setRPM(uint32_t rpm);
+	uint32_t BLDC_getRPM(void);
 	uint8_t BLDC_setPWM(uint32_t pwm);
+	uint32_t BLDC_getPWM(void);
+	uint8_t BLDC_setStartupPWM(uint32_t pwm);
+	uint32_t BLDC_getStartupPWM(void);
+	uint8_t BLDC_setSlope(uint32_t slope);
+	uint32_t BLDC_getSlope(void);
+	uint8_t BLDC_setIntercept(uint32_t intercept);
+	uint32_t BLDC_getIntercept(void);
 	uint8_t BLDC_powerOn(void);
 	uint8_t BLDC_powerOff(void);
 	uint8_t BLDC_getPower(void);
-	uint32_t BLDC_getRPM(void);
-	uint8_t BLDC_getPWM(void);
 	uint32_t BLDC_getFGPeriod(void);
 	uint8_t BLDC_SetDirection(BLDC_DirectionTypeDef Dir);
 	BLDC_DirectionTypeDef BLDC_GetDirection(void);
