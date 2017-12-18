@@ -9,11 +9,13 @@ static TIM_OCInitTypeDef  			TIM_OCInitStructure;
 static volatile uint32_t	STEP_steps_requested = 0, STEP_steps_moved = 0;	//Steps requested and moved
 static volatile uint32_t	STEP_PWM_freq = STEP_DEF_FREQ, STEP_PWM_Actual_freq = 0;	//Motor PWM frequency
 static volatile uint32_t	STEP_StepPDist = STEP_DEF_STEPS_PER_DIST;	//Steps per Distes value
+static volatile STEP_MicroModeTypeDef	STEP_MicroStepMode = STEP_FULL;
 
 //---------------  Internal functions prototypes -------------------
 static void STEP_GPIO_Config(void);
 static uint8_t STEP_Set_Timer_PWM(uint32_t freq);
 static void STEP_Stop(void);
+static uint8_t STEP_MicroStepMode2Multiplier(STEP_MicroModeTypeDef STEP_MicroStepMode);
 static void STEP_PWM_Config(void);
 
 /** *****************************************
@@ -108,7 +110,8 @@ uint32_t STEP_Move(uint32_t Steps){
  */
 uint32_t STEP_MoveDist(uint32_t Dist)
 {	
-	uint64_t StepsToMove = Dist * STEP_StepPDist;
+	uint8_t Multiplier = STEP_MicroStepMode2Multiplier(STEP_MicroStepMode);	
+	uint64_t StepsToMove = Dist * STEP_StepPDist * Multiplier;
 	if (StepsToMove > 0xFFFFFFFF) return 0; //Cancel if requested value is too high
 	return STEP_Move((uint32_t)StepsToMove);
 }
@@ -134,6 +137,9 @@ uint8_t	STEP_getStatus(STEP_DirectionTypeDef * Direction, uint32_t * Steps_moved
  * 
  */
 uint8_t STEP_MicroSet(STEP_MicroModeTypeDef	Mode){
+	//Save current mode
+	STEP_MicroStepMode = Mode;
+	//Switch mode
 	switch(Mode){
 		case STEP_FULL:
 			GPIO_ResetBits(STEP_MS1_GPIO_PORT, STEP_MS1_PIN);
@@ -370,6 +376,29 @@ static void STEP_Stop(void){
 		//Turn off LED
 		LED_Set(LED_GREEN, LED_OFF);
 }
+
+/**
+  * @brief  Convert MicroStepMode to steps multiplier
+  * @param  MicroSteppping Mode
+  * @retval Multiplier of steps
+  */
+static uint8_t STEP_MicroStepMode2Multiplier(STEP_MicroModeTypeDef MicroStepMode){
+		switch (MicroStepMode){
+		case STEP_FULL:
+			return 1;
+		case STEP_HALF:
+			return 2;
+		case STEP_QUARTER:
+			return 4;
+		case STEP_EIGHTH:
+			return 8;
+		case STEP_SIXTEENTH:
+			return 16;
+		}
+		
+		return 0; //Error
+}
+
 
 /**
   * @brief  Configure the GPIO.
