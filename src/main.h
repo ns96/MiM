@@ -41,6 +41,9 @@
 /* Exported functions ------------------------------------------------------- */
 void SYSTICK_Callback(void);
 
+// ESC mode flag
+extern uint8_t ESCmode;
+
 #endif /* __MAIN_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

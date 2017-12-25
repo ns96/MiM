@@ -185,4 +185,14 @@
 #define LED_BLUE_GPIO_CLK             RCC_AHBPeriph_GPIOB
 #define LED_BLUE_SOURCE               GPIO_PinSource15
 #define LED_BLUE_AF                   GPIO_AF_0	 
+
+
+/*****************************************************************
+ * @brief Definition for I2C ports
+ *****************************************************************/ 
+#define I2C_GPIO                    GPIOB
+#define I2C_RCC_APB2Periph_GPIO     RCC_APB2Periph_GPIOB
+#define GPIO_Pin_SDA                GPIO_Pin_12
+#define GPIO_Pin_SCL                GPIO_Pin_5
+
 #endif

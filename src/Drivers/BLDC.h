@@ -30,6 +30,7 @@ typedef enum {
 
 //Exported functions
 	uint8_t BLDC_init(void); //Must be called from initialization section
+	uint8_t BLDC_deInit(void);
 	uint8_t 	BLDC_FG_PulseDetected(void); //Must be called in corresponding Input Capture interrupt
 	void	BLDC_FG_PulseMissing(void); //Must be called in corresponding Timer Update interrupt
 	uint8_t BLDC_RPM_control(void); //Must be called every 100 ms (or other period - depends on application)

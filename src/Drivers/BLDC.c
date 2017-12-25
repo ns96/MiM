@@ -47,6 +47,18 @@ uint8_t BLDC_init(void){
 	return 1;
 }
 
+/**
+ * \brief Deinitializes the BLDC motor driver
+ *
+ */
+uint8_t BLDC_deInit(void){
+	BLDC_RPM_target = 0;  //Request RPM = 0
+	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
+	BLDC_setTimerPWM(0);				//Stop PWM generation
+	GPIO_ResetBits(BLDC_POWER_GPIO_PORT, BLDC_POWER_PIN); //Set/Clear POWER PIN
+}
+
+
 /** ********************************************************
 *				Exported Functions - interrupts and timers handling							
 ********************************************************* */

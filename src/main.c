@@ -33,6 +33,10 @@
 #include "Drivers/LED.h"
 #include "Drivers/A4988.h"
 #include "Drivers/LimitSW.h"
+#include "Drivers/ESC.h"
+
+/* Public variables ---------------------------------------------------------*/
+uint8_t ESCmode;
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -113,8 +117,14 @@ int main(void)
 							
 		if (Tick100ms){
 			Tick100ms--;
-			//Adjust BLDC motor speed
-			BLDC_RPM_control();
+			if (ESCmode){
+				//Adjust ESC motor speed
+				ESC_RPM_control();
+			}
+			else {
+				//Adjust BLDC motor speed
+				BLDC_RPM_control();
+			}
 			//Blink LEDs
 			LED_Blinker();
 		}

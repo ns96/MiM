@@ -5,6 +5,7 @@
 #include "LED.h"
 #include "CRC8.h"
 #include <string.h>
+#include "ESC.h"
 
 volatile uint8_t uart_pointer=0;
 volatile uint8_t UART_cmdReceived=0;
@@ -107,6 +108,177 @@ void communication_callback(void){
 				sprintf(Response, CMD_VERSION);
 				comm_print_cmd(Response);
 			}
+
+			/* **********************************************************************
+			 *													ESC
+			************************************************************************/
+			else
+			//------------------------- ESC ON ----------------------------------------		
+			if cmd_is(UART_CMD_ESCon){
+					BLDC_deInit();
+					if (ESC_init() == 1) {
+						ESCmode = 1;
+						sprintf(Response, "OK,%d", CMD_OK);
+					} else {
+						sprintf(Response, "ERR,%d", CMD_INVALID_STATE);
+					}
+					comm_print_cmd(Response);
+			}	
+			else
+			//------------------------- ESC OFF ----------------------------------------	
+			if cmd_is(UART_CMD_ESCoff){
+					ESC_deInit();
+					BLDC_init();
+					ESCmode = 0;
+					comm_print_cmd("OK,0");
+			}			
+
+			else
+			//ESC commands here
+			//------------------------- Set RPM ----------------------------------------
+			if (ESCmode && cmd_is(UART_CMD_ESCSetRPM)){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_ESCSetRPM)-1],",%d",&a)==1){
+					if (ESC_setRPM(a) == 1)
+						sprintf(Response, "OK,%d",a);
+					else 
+						sprintf(Response, "ERR,%d", CMD_INVALID_STATE);
+					comm_print_cmd(Response);
+				}
+				else
+				{
+					sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					comm_print_cmd(Response);
+				}
+			}
+			else
+			//------------------------- Get RPM ----------------------------------------
+			if (ESCmode && cmd_is(UART_CMD_ESCGetRPM)){
+						sprintf(Response, "OK,%d",ESC_getRPM());
+						comm_print_cmd(Response);
+				}
+			else
+			//------------------------- Set PWM ----------------------------------------
+			if (ESCmode && cmd_is(UART_CMD_ESCSetPWM)){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_ESCSetPWM)-1],",%d",&a)==1){
+					if (a > 1000)
+						sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					else {	
+						if (ESC_setPWM(a) == 1)
+							sprintf(Response, "OK,%d",a);
+						else 
+							sprintf(Response, "ERR,%d", CMD_INVALID_STATE);
+					}
+					comm_print_cmd(Response);
+				}
+				else
+				{
+					sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					comm_print_cmd(Response);
+				}
+			}
+			else
+			//------------------------- Get PWM ----------------------------------------
+			if (ESCmode && cmd_is(UART_CMD_ESCGetPWM)){
+					sprintf(Response, "OK,%d",ESC_getPWM());
+					comm_print_cmd(Response);
+			}
+			else
+			//------------------------- Set StartupPWM ----------------------------------------
+			if (ESCmode && cmd_is(UART_CMD_ESCSetStartPWM)){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_ESCSetStartPWM)-1],",%d",&a)==1){
+					if (ESC_setStartupPWM(a) == 1)
+						sprintf(Response, "OK,%d",a);
+					else 
+						sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+						comm_print_cmd(Response);
+					}
+					else
+					{
+						sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+						comm_print_cmd(Response);
+					}
+				}
+			else
+			//------------------------- Get StartupPWM ----------------------------------------
+			if (ESCmode && cmd_is(UART_CMD_ESCGetStartPWM)){
+					sprintf(Response, "OK,%d",ESC_getStartupPWM());
+					comm_print_cmd(Response);
+			}
+			else
+			//------------------------- Set Slope ----------------------------------------
+			if (ESCmode && cmd_is(UART_CMD_ESCSetSlope)){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_ESCSetSlope)-1],",%d",&a)==1){
+				ESC_setSlope(a);
+					sprintf(Response, "OK,%d",a);
+					comm_print_cmd(Response);
+				}
+				else
+				{
+					sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					comm_print_cmd(Response);
+				}
+			}
+			else
+			//------------------------- Get Slope ----------------------------------------
+			if (ESCmode && cmd_is(UART_CMD_ESCGetSlope)){
+					sprintf(Response, "OK,%d",ESC_getSlope());
+					comm_print_cmd(Response);
+			}
+			else
+			//------------------------- Set Intercept ----------------------------------------
+			if (ESCmode && cmd_is(UART_CMD_ESCSetIntercept)){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_ESCSetIntercept)-1],",%d",&a)==1){
+					ESC_setIntercept(a);
+					sprintf(Response, "OK,%d",a);
+					comm_print_cmd(Response);
+				}
+				else
+				{
+					sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					comm_print_cmd(Response);
+				}
+			}
+			else
+			//------------------------- Get Intercept ----------------------------------------
+			if (ESCmode && cmd_is(UART_CMD_ESCGetIntercept)){
+					sprintf(Response, "OK,%d",ESC_getIntercept());
+					comm_print_cmd(Response);
+			}
+			
+			else
+			//------------------------- Set Motor Direction ----------------------------------------		
+			if (ESCmode && cmd_is(UART_CMD_ESCSetDIR)){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_SetDIR)-1],",%d",&a)==1){
+					switch (a){
+						case 0:
+							ESC_SetDirection(ESC_COUNTER_CLOCKWISE);
+							sprintf(Response, "OK,%d", a);
+							comm_print_cmd(Response);
+							break;
+						case 1:
+							ESC_SetDirection(ESC_CLOCKWISE);
+							sprintf(Response, "OK,%d", a);
+							comm_print_cmd(Response);
+							break;
+						default:
+							sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+							comm_print_cmd(Response);
+						break;
+					}
+				}
+				else
+				{
+					sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
+					comm_print_cmd(Response);
+				}
+			}	
+			else
+			//------------------------- Get Motor Direction ----------------------------------------	
+			if (ESCmode && cmd_is(UART_CMD_ESCGetDIR)){
+					sprintf(Response, "OK,%d", ESC_GetDirection());
+					comm_print_cmd(Response);
+			}	
+			//non ESC commands here
 			/* **********************************************************************
 			 *													BLDC
 			************************************************************************/
@@ -494,3 +666,4 @@ static void STEP_Move_Sub(uint32_t (*MoveFun)(), int * a, char * Response){
 		
 		comm_print_cmd(Response);
 }
+

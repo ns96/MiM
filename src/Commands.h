@@ -96,6 +96,22 @@
 		#define UART_CMD_STEPSleepOff 	"SleepOff"
 		#define UART_CMD_STEPGetSleep		"GetSleep"
 		
+		/*		ESC control			*/
+		#define UART_CMD_ESCon 				"ESCon"
+		#define UART_CMD_ESCoff 			"ESCoff"
+		#define UART_CMD_ESCSetRPM 			"SetRPM"
+		#define UART_CMD_ESCGetRPM 			"GetRPM"
+		#define UART_CMD_ESCSetPWM 			"SetPWM"		//PWM value: 0 - 1000
+		#define UART_CMD_ESCGetPWM 			"GetPWM"		//PWM value: 0 - 1000
+		#define UART_CMD_ESCSetStartPWM 	"SetStartPWM"
+		#define UART_CMD_ESCGetStartPWM 	"GetStartPWM"
+		#define UART_CMD_ESCSetSlope 		"SetSlope" //Set slope value multiplied by 100
+		#define UART_CMD_ESCGetSlope 		"GetSlope" //Get slope value multiplied by 100
+		#define UART_CMD_ESCSetIntercept "SetIntercept"
+		#define UART_CMD_ESCGetIntercept "GetIntercept"
+		#define UART_CMD_ESCSetDIR 					"SetDIR"
+		#define UART_CMD_ESCGetDIR 					"GetDIR"
+		
 		/*		Debug			*/
 		#define UART_CMD_GETTIM17 		"GetTIM17"
 	#endif
