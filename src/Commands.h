@@ -9,7 +9,7 @@
 		CMD_INVALID_STATE,
 	} CMD_StatusTypedef;
 	
-	#define CMD_VERSION		"MIM 0.0.6"	//Version string
+	#define CMD_VERSION		"MIM 1.0.0"	//Version string
 	
 	#define CRC_SEPARATOR	':' //This character separates CRC data from command
 	#define CMD_BUFF_SIZE	40  //Size of buffers of received and printed commands (currently print serial is longest response)

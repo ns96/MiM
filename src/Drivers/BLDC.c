@@ -161,8 +161,8 @@ uint8_t BLDC_RPM_control(void){
 			Difference = BLDC_RPM_target - RPM_Act;
 			
 			//Select adjusment step, dependent on actual RPM difference
-			if (abs(Difference) > 2000) Step = 100;
-			else if (abs(Difference) > 100) Step = 10;
+			if (abs(Difference) > 2000) Step = 20;
+			else if (abs(Difference) > 100) Step = 5;
 			else Step = 1;
 			
 			//Change PWM parameter if RPM can be adjusted more closely to target value. 

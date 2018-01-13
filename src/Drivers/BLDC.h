@@ -19,7 +19,7 @@
 #define	BLDC_STARTUP_PWM_DEF				10								//Default PWM to be set at motor startup (0 - 100); 0 - do not use BLDC_STARTUP_PWM
 // MOTOR PROFILE
 #define BLDC_SLOPE_DEF							950							// 820 Set the motor profile default slope * 100 for estimating PWM based on RPM
-#define BLDC_INTERCEPT_DEF					444							// Set the motor profile default intercept for estimating PWM based on RPM
+#define BLDC_INTERCEPT_DEF					500							// Set the motor profile default intercept for estimating PWM based on RPM
 
 
 //Exported definitions
