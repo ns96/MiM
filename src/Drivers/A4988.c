@@ -1,11 +1,11 @@
-#include "main.h"
+#include <stdint.h>
 #include "A4988.h"
 #include "LED.h"
 #include "LimitSW.h"
 
 //-------------- private variables -------------
-static TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
-static TIM_OCInitTypeDef  			TIM_OCInitStructure;
+//static TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
+//static TIM_OCInitTypeDef  			TIM_OCInitStructure;
 static volatile uint32_t	STEP_steps_requested = 0, STEP_steps_moved = 0;	//Steps requested and moved
 static volatile uint32_t	STEP_PWM_freq = STEP_DEF_FREQ, STEP_PWM_Actual_freq = 0;	//Motor PWM frequency
 static volatile uint32_t	STEP_StepPDist = STEP_DEF_STEPS_PER_DIST;	//Steps per Distes value
@@ -62,7 +62,7 @@ void STEP_PWM_Completed(void){
 			} 
 			//Just generate another step
 			else {				
-				TIM_Cmd(STEP_PWM_TIMER, ENABLE);  //Turn on timer
+//				TIM_Cmd(STEP_PWM_TIMER, ENABLE);  //Turn on timer
 			}
 		
 			STEP_steps_moved++;
@@ -142,29 +142,19 @@ uint8_t STEP_MicroSet(STEP_MicroModeTypeDef	Mode){
 	//Switch mode
 	switch(Mode){
 		case STEP_FULL:
-			GPIO_ResetBits(STEP_MS1_GPIO_PORT, STEP_MS1_PIN);
-			GPIO_ResetBits(STEP_MS2_GPIO_PORT, STEP_MS2_PIN);
-			GPIO_ResetBits(STEP_MS3_GPIO_PORT, STEP_MS3_PIN);
+
 			break;
 		case STEP_HALF:
-			GPIO_SetBits(STEP_MS1_GPIO_PORT, STEP_MS1_PIN);
-			GPIO_ResetBits(STEP_MS2_GPIO_PORT, STEP_MS2_PIN);
-			GPIO_ResetBits(STEP_MS3_GPIO_PORT, STEP_MS3_PIN);
+
 			break;
 		case STEP_QUARTER:
-			GPIO_ResetBits(STEP_MS1_GPIO_PORT, STEP_MS1_PIN);
-			GPIO_SetBits(STEP_MS2_GPIO_PORT, STEP_MS2_PIN);
-			GPIO_ResetBits(STEP_MS3_GPIO_PORT, STEP_MS3_PIN);
+
 			break;
 		case STEP_EIGHTH:
-			GPIO_SetBits(STEP_MS1_GPIO_PORT, STEP_MS1_PIN);
-			GPIO_SetBits(STEP_MS2_GPIO_PORT, STEP_MS2_PIN);
-			GPIO_ResetBits(STEP_MS3_GPIO_PORT, STEP_MS3_PIN);
+
 			break;
 		case STEP_SIXTEENTH:
-			GPIO_SetBits(STEP_MS1_GPIO_PORT, STEP_MS1_PIN);
-			GPIO_SetBits(STEP_MS2_GPIO_PORT, STEP_MS2_PIN);
-			GPIO_SetBits(STEP_MS3_GPIO_PORT, STEP_MS3_PIN);
+
 			break;
 	}
 	return 1;
@@ -173,24 +163,8 @@ uint8_t STEP_MicroSet(STEP_MicroModeTypeDef	Mode){
  * \brief Get microstepping mode
  */
 STEP_MicroModeTypeDef	STEP_MicroGet(void){
-	uint8_t	Mode = 0;
-	if (GPIO_ReadOutputDataBit(STEP_MS1_GPIO_PORT, STEP_MS1_PIN) == Bit_SET) Mode |= 0x01;
-	if (GPIO_ReadOutputDataBit(STEP_MS2_GPIO_PORT, STEP_MS2_PIN) == Bit_SET) Mode |= 0x02;
-	if (GPIO_ReadOutputDataBit(STEP_MS3_GPIO_PORT, STEP_MS3_PIN) == Bit_SET) Mode |= 0x04;
-	
-	switch (Mode){
-		case 0x00:
-			return STEP_FULL;
-		case 0x01:
-			return STEP_HALF;
-		case 0x02:
-			return STEP_QUARTER;
-		case 0x03:
-			return STEP_EIGHTH;
-		case 0x07:
-			return STEP_SIXTEENTH;
-	}	
-	return STEP_ERROR;
+
+	return STEP_MicroStepMode;
 }
 	
 /**
@@ -198,7 +172,7 @@ STEP_MicroModeTypeDef	STEP_MicroGet(void){
  */
 uint8_t STEP_enableOn(void){
 	STEP_Stop(); //clear previously requested steps if there are any
-	GPIO_ResetBits(STEP_ENABLE_GPIO_PORT,STEP_ENABLE_PIN);
+//	GPIO_ResetBits(STEP_ENABLE_GPIO_PORT,STEP_ENABLE_PIN);
 	return 1;
 }
 
@@ -207,7 +181,7 @@ uint8_t STEP_enableOn(void){
  */
 uint8_t STEP_enableOff(void){
 	STEP_Stop();
-	GPIO_SetBits(STEP_ENABLE_GPIO_PORT,STEP_ENABLE_PIN);
+//	GPIO_SetBits(STEP_ENABLE_GPIO_PORT,STEP_ENABLE_PIN);
 	return 1;
 }
 
@@ -215,9 +189,9 @@ uint8_t STEP_enableOff(void){
  * \brief Get status of STEP motor enable
  */
 STEP_OnOffTypeDef STEP_getEnable(void){
-	if (GPIO_ReadOutputDataBit(STEP_ENABLE_GPIO_PORT, STEP_ENABLE_PIN) == Bit_SET) 
-		return STEP_OFF;
-	else return STEP_ON;
+//	if (GPIO_ReadOutputDataBit(STEP_ENABLE_GPIO_PORT, STEP_ENABLE_PIN) == Bit_SET) 
+//		return STEP_OFF;
+//	else return STEP_ON;
 }
 
 /**
@@ -225,7 +199,7 @@ STEP_OnOffTypeDef STEP_getEnable(void){
  */
 uint8_t STEP_sleepOn(void){
 	STEP_Stop();
-	GPIO_ResetBits(STEP_SLEEP_GPIO_PORT,STEP_SLEEP_PIN);
+//	GPIO_ResetBits(STEP_SLEEP_GPIO_PORT,STEP_SLEEP_PIN);
 	return 1;
 }
 
@@ -234,7 +208,7 @@ uint8_t STEP_sleepOn(void){
  */
 uint8_t STEP_sleepOff(void){
 	STEP_Stop(); //clear previously requested steps if there are any
-	GPIO_SetBits(STEP_SLEEP_GPIO_PORT,STEP_SLEEP_PIN);
+//	GPIO_SetBits(STEP_SLEEP_GPIO_PORT,STEP_SLEEP_PIN);
 	return 1;
 }
 
@@ -242,9 +216,9 @@ uint8_t STEP_sleepOff(void){
  * \brief Get status of STEP motor sleep
  */
 STEP_OnOffTypeDef STEP_getSleep(void){
-	if (GPIO_ReadOutputDataBit(STEP_SLEEP_GPIO_PORT, STEP_SLEEP_PIN) == Bit_SET) 
+//	if (GPIO_ReadOutputDataBit(STEP_SLEEP_GPIO_PORT, STEP_SLEEP_PIN) == Bit_SET) 
 		return STEP_OFF;
-	else return STEP_ON;
+//	else return STEP_ON;
 }
 
 /**
@@ -252,7 +226,7 @@ STEP_OnOffTypeDef STEP_getSleep(void){
  */
 uint8_t STEP_resetOn(void){
 	STEP_Stop();
-	GPIO_ResetBits(STEP_RESET_GPIO_PORT,STEP_RESET_PIN);
+//	GPIO_ResetBits(STEP_RESET_GPIO_PORT,STEP_RESET_PIN);
 	return 1;
 }
 
@@ -261,7 +235,7 @@ uint8_t STEP_resetOn(void){
  */
 uint8_t STEP_resetOff(void){
 	STEP_Stop(); //clear previously requested steps if there are any
-	GPIO_SetBits(STEP_RESET_GPIO_PORT,STEP_RESET_PIN);
+//	GPIO_SetBits(STEP_RESET_GPIO_PORT,STEP_RESET_PIN);
 	return 1;
 }
 
@@ -269,9 +243,9 @@ uint8_t STEP_resetOff(void){
  * \brief Get status of STEP motor reset
  */
 STEP_OnOffTypeDef STEP_getReset(void){
-	if (GPIO_ReadOutputDataBit(STEP_RESET_GPIO_PORT, STEP_RESET_PIN) == Bit_SET) 
+//	if (GPIO_ReadOutputDataBit(STEP_RESET_GPIO_PORT, STEP_RESET_PIN) == Bit_SET) 
 		return STEP_OFF;
-	else return STEP_ON;
+//	else return STEP_ON;
 }
 
 /**
@@ -320,10 +294,10 @@ uint8_t STEP_SetDirection(STEP_DirectionTypeDef Dir)
 {
 	switch (Dir){
 		case STEP_CLOCKWISE:
-			GPIO_SetBits(STEP_DIR_GPIO_PORT, STEP_DIR_PIN);
+//			GPIO_SetBits(STEP_DIR_GPIO_PORT, STEP_DIR_PIN);
 			return 1;
 		case STEP_COUNTER_CLOCKWISE:
-			GPIO_ResetBits(STEP_DIR_GPIO_PORT, STEP_DIR_PIN);
+//			GPIO_ResetBits(STEP_DIR_GPIO_PORT, STEP_DIR_PIN);
 			return 1;
 		default:
 			return 0;
@@ -335,9 +309,9 @@ uint8_t STEP_SetDirection(STEP_DirectionTypeDef Dir)
  * \retval Direction in STEP_DirectionTypeDef type
  */
 STEP_DirectionTypeDef STEP_GetDirection(void){
-	if (GPIO_ReadOutputDataBit(STEP_DIR_GPIO_PORT, STEP_DIR_PIN) == Bit_SET) 
+//	if (GPIO_ReadOutputDataBit(STEP_DIR_GPIO_PORT, STEP_DIR_PIN) == Bit_SET) 
 		return STEP_CLOCKWISE;
-	else
+//	else
 		return STEP_COUNTER_CLOCKWISE;
 }
 
@@ -358,10 +332,10 @@ static uint8_t STEP_Set_Timer_PWM(uint32_t freq){
 		STEP_PWM_Actual_freq = freq;
 		
 		//Set PWM frequency with 50% duty
-		TIM_TimeBaseStructure.TIM_Period = (uint16_t) NewPeriod; // set period duration
-		TIM_TimeBaseInit(STEP_PWM_TIMER, &TIM_TimeBaseStructure);// reinititialise timer with new period value
-		TIM_OCInitStructure.TIM_Pulse = (uint16_t) (NewPeriod / 2); // set pulse duration (50% Duty)
-		TIM_OC1Init(STEP_PWM_TIMER, &TIM_OCInitStructure); //reinititialise output compare register
+//		TIM_TimeBaseStructure.TIM_Period = (uint16_t) NewPeriod; // set period duration
+//		TIM_TimeBaseInit(STEP_PWM_TIMER, &TIM_TimeBaseStructure);// reinititialise timer with new period value
+//		TIM_OCInitStructure.TIM_Pulse = (uint16_t) (NewPeriod / 2); // set pulse duration (50% Duty)
+//		TIM_OC1Init(STEP_PWM_TIMER, &TIM_OCInitStructure); //reinititialise output compare register
 		return 1;
 }
 /**
@@ -407,6 +381,7 @@ static uint8_t STEP_MicroStepMode2Multiplier(STEP_MicroModeTypeDef MicroStepMode
   */
 static void STEP_GPIO_Config(void)
 {
+#if 0
 	GPIO_InitTypeDef        GPIO_InitStructure;
 	
 	/* GPIOx Periph clock enable */
@@ -485,6 +460,7 @@ static void STEP_GPIO_Config(void)
 	
   /* Connect TIM Channels to AF2 */
   GPIO_PinAFConfig(STEP_PWM_GPIO_PORT, STEP_PWM_SOURCE, STEP_PWM_AF);
+ #endif
 }
 
 /**
@@ -494,6 +470,7 @@ static void STEP_GPIO_Config(void)
   */
 static void STEP_PWM_Config(void)
 {
+#if 0
   NVIC_InitTypeDef NVIC_InitStructure;
 	
   /* PWM_PWM_TIMER clock enable */
@@ -542,4 +519,5 @@ static void STEP_PWM_Config(void)
 	
 	//Enable Step completed interrupt
 	TIM_ITConfig(STEP_PWM_TIMER, TIM_IT_Update, ENABLE); 
+#endif
 }

@@ -1,39 +1,20 @@
+#include <Arduino.h>
 #include "LimitSW.h"
 /**
   * @brief Initialize the limit switch driver
   * @param  None
   * @retval None
   */
-	
 
 //---------------  Internal macros -------------------
-#define STEP_LimitSwitch1_Get()	GPIO_ReadInputDataBit(S01_GPIO_PORT, S01_PIN)
-#define STEP_LimitSwitch2_Get()	GPIO_ReadInputDataBit(S02_GPIO_PORT, S02_PIN)
-#define STEP_LIMIT_ON			Bit_RESET
-#define STEP_LIMIT_OFF		Bit_SET
+#define STEP_LimitSwitch1_Get()	digitalRead(S01_PIN)
+#define STEP_LimitSwitch2_Get()	digitalRead(S02_PIN)
+#define STEP_LIMIT_ON			0
+#define STEP_LIMIT_OFF			1
 
 uint8_t LimitSW_Init(void){
-	GPIO_InitTypeDef        GPIO_InitStructure;
-	
-	/* GPIOx Periph clock enable */
-  RCC_AHBPeriphClockCmd(S01_GPIO_CLK, ENABLE);
-  RCC_AHBPeriphClockCmd(S02_GPIO_CLK, ENABLE);
-	
-	/* Configure S0x PIN as input mode */
-  GPIO_InitStructure.GPIO_Pin = S01_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(S01_GPIO_PORT, &GPIO_InitStructure);
-	
-	/* Configure S0x PIN as input mode */
-  GPIO_InitStructure.GPIO_Pin = S02_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(S02_GPIO_PORT, &GPIO_InitStructure);
+  pinMode(S01_PIN, INPUT);
+  pinMode(S02_PIN, INPUT);
 	
 	return 1;
 }

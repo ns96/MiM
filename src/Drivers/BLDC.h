@@ -1,7 +1,7 @@
 #ifndef _BLDC_H_
 #define _BLDC_H_
-	#include "stm32f0xx.h"
-	#include "board.h"
+
+	#include "../board.h"
 
 //-------------- BLDC motor control -------------
 //RPM
@@ -10,10 +10,10 @@
 #define BLDC_RPM_ADJUSTEMT_STEP	9								//Minimum possible motor adjusment step in RPM. Depends on max motor speed (at 100% duty) and PWM timer resolution.
 //FG
 #define	BLDC_FG_AVERAGING_COUNT 3 							//How many values use when averaging FGPeriod. 0 = off
-#define BLDC_FG_CLOCK_BASE			SystemCoreClock //FG timer base clock frequency
+#define BLDC_FG_CLOCK_BASE			8000000 //FG timer base clock frequency
 #define BLDC_FG_TIMER_FREQ			100000 					//TIMx FG timer frequency
 //PWM
-#define BLDC_PWM_CLOCK_BASE			SystemCoreClock				//FG timer base clock frequency
+#define BLDC_PWM_CLOCK_BASE			8000000				//FG timer base clock frequency
 #define BLDC_PWM_TIMER_FREQ			BLDC_PWM_CLOCK_BASE 	//TIMx PWM timer frequency
 #define BLDC_PWM_FREQ						8000 									//Required PWM signal frequency
 #define	BLDC_STARTUP_PWM_DEF				10								//Default PWM to be set at motor startup (0 - 100); 0 - do not use BLDC_STARTUP_PWM
@@ -21,6 +21,9 @@
 #define BLDC_SLOPE_DEF							950							// 820 Set the motor profile default slope * 100 for estimating PWM based on RPM
 #define BLDC_INTERCEPT_DEF					500							// Set the motor profile default intercept for estimating PWM based on RPM
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //Exported definitions
 typedef enum {
@@ -50,5 +53,8 @@ typedef enum {
 	uint32_t BLDC_getFGPeriod(void);
 	uint8_t BLDC_SetDirection(BLDC_DirectionTypeDef Dir);
 	BLDC_DirectionTypeDef BLDC_GetDirection(void);
+#ifdef __cplusplus
+}
+#endif	
 #endif
 

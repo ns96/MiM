@@ -1,5 +1,7 @@
+#include <Arduino.h>
+#include <stdint.h>
 #include "LED.h"
-
+#include  "../board.h"
 static volatile uint8_t BlinkRequest = 0;
 static volatile uint8_t BlinkCount[LED_NUMBER_OF_LEDS];
 
@@ -9,37 +11,9 @@ static volatile uint8_t BlinkCount[LED_NUMBER_OF_LEDS];
   * @retval None
   */
 uint8_t LED_Init(void){
-	GPIO_InitTypeDef        GPIO_InitStructure;
-	
-	/* GPIOx Periph clock enable */
-  RCC_AHBPeriphClockCmd(LED_RED_GPIO_CLK, ENABLE);
-  RCC_AHBPeriphClockCmd(LED_GREEN_GPIO_CLK, ENABLE);
-  RCC_AHBPeriphClockCmd(LED_BLUE_GPIO_CLK, ENABLE);
-	
-	/* Configure LED PIN as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = LED_RED_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(LED_RED_GPIO_PORT, &GPIO_InitStructure);
-	
-	/* Configure LED PIN as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = LED_GREEN_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(LED_GREEN_GPIO_PORT, &GPIO_InitStructure);
-	
-	/* Configure LED PIN as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = LED_BLUE_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(LED_BLUE_GPIO_PORT, &GPIO_InitStructure);
-	return 1;
+  pinMode(LED_RED_PIN, OUTPUT);
+  pinMode(LED_BLUE_PIN, OUTPUT);
+  pinMode(LED_GREEN_PIN, OUTPUT);
 }
 
 
@@ -63,20 +37,16 @@ uint8_t	LED_Blink(LED_LedColor LED, uint8_t count){
   * @retval 1 if OK
   */
 uint8_t	LED_Set(LED_LedColor LED, LED_State level){
-	uint32_t Pin;
-	GPIO_TypeDef * Port;
+  int pin;
 	switch (LED){
 		case LED_RED:
-			Port = LED_RED_GPIO_PORT;
-			Pin = LED_RED_PIN;
-			break;
+			pin = LED_RED_PIN; 
+		break;
 		case LED_BLUE:
-			Port = LED_BLUE_GPIO_PORT;
-			Pin = LED_BLUE_PIN;
+			pin = LED_BLUE_PIN; 
 		break;
 		case LED_GREEN:
-			Port = LED_GREEN_GPIO_PORT;
-			Pin = LED_GREEN_PIN;
+			pin = LED_GREEN_PIN;
 		break;
 		default:
 			return 0;
@@ -84,18 +54,18 @@ uint8_t	LED_Set(LED_LedColor LED, LED_State level){
 	
 	switch (level){
 		case LED_ON:
-			GPIO_SetBits(Port, Pin);
+			digitalWrite(pin, HIGH);
 		break;
 		case LED_OFF:
-			GPIO_ResetBits(Port, Pin);
+			digitalWrite(pin, LOW);
 			//Clear corresponding bit
 			BlinkRequest &= ~(1 << LED);
 		break;
 		case LED_SWITCH:					
-			if (GPIO_ReadOutputDataBit(Port, Pin) == Bit_SET) 
-					GPIO_ResetBits(Port, Pin);
+			if (digitalRead(pin)) 
+					digitalWrite(pin, LOW);
 			else 
-					GPIO_SetBits(Port, Pin);
+					digitalWrite(pin, HIGH);
 		break;
 		case LED_BLINK:
 			//Set corresponding bit
@@ -113,17 +83,17 @@ uint8_t	LED_Set(LED_LedColor LED, LED_State level){
   */
 uint8_t	LED_Blinker(void){
 	LED_LedColor LED;
-	for (LED = (LED_LedColor)0; LED < LED_NUMBER_OF_LEDS; LED++){
+	for (int i = 0; i < LED_NUMBER_OF_LEDS; i++){
 		//Infinite blinking
-		if (BlinkRequest & (1 << LED))
-			LED_Set(LED, LED_SWITCH);
+		if (BlinkRequest & (1 << i))
+			LED_Set(i, LED_SWITCH);
 		
 		//Blinking n counts
-		if (BlinkCount[LED]){
-			BlinkCount[LED]--;
-			LED_Set(LED, LED_SWITCH);
-			if (!BlinkCount[LED]) 
-				LED_Set(LED, LED_OFF); //finally turn off LED
+		if (BlinkCount[i]){
+			BlinkCount[i]--;
+			LED_Set(i, LED_SWITCH);
+			if (!BlinkCount[i]) 
+				LED_Set(i, LED_OFF); //finally turn off LED
 		}
 	}
 	return 1;

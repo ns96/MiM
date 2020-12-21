@@ -1,12 +1,12 @@
+#include <stdint.h>
 #include "BLDC.h"
-#include "main.h"
 #include "LED.h"
 #include <stdbool.h>
 #include <stdlib.h>
 
 //-------------- private variables -------------
-	GPIO_InitTypeDef        GPIO_InitStructure;
-	TIM_OCInitTypeDef  			TIM_OCInitStructure;
+//	GPIO_InitTypeDef        GPIO_InitStructure;
+//	TIM_OCInitTypeDef  			TIM_OCInitStructure;
 	static volatile bool RPM_Adjust_requested = false, BLDC_Startup_Mode = false, Skip_FG_Pulse = false;
 	static volatile uint32_t BLDC_RPM_target = 0;
 	static volatile uint16_t FGPeriod = 0; //Period of FG signal
@@ -56,6 +56,7 @@ uint8_t BLDC_init(void){
  * 				Must be called in corresponding Timer Update interrupt
  */
 void BLDC_FG_PulseMissing(void){
+/*
 	//Stop blinking LED
 	LED_Set(LED_GREEN, LED_OFF);
 	//Is the motor supposed to be running?
@@ -72,7 +73,9 @@ void BLDC_FG_PulseMissing(void){
 		}
 	}
 	//Clear period value globally
+
 	FGPeriod = 0; 
+*/	
 }
 
 /**
@@ -80,6 +83,7 @@ void BLDC_FG_PulseMissing(void){
  * 				Must be called in corresponding Input Capture interrupt
  */
 uint8_t BLDC_FG_PulseDetected(void){
+#if 0
 		uint16_t CapturedValue = 0;
 		
 		motorHalted_cnt=0;
@@ -125,7 +129,7 @@ uint8_t BLDC_FG_PulseDetected(void){
 			// Adjust RPM at every FG pulse in BLDC startup mode (not every 100 ms as in normal mode)
 			if (BLDC_Startup_Mode == true) {return BLDC_RPM_control();}
 		}
-		
+#endif		
 		return 1;
 }
 
@@ -139,7 +143,7 @@ uint8_t BLDC_RPM_control(void){
 	//printf("RPM: %d, %d, %d, %d, %d\r\n", BLDC_RPM_target, BLDC_getRPM(),  TIM_GetCapture2(BLDC_PWM_TIMER), BLDC_getFGPeriod(), motorHalted_cnt);
 	//printf("BLDC: %d, %d, %d\r\n", BLDC_Startup_PWM, BLDC_Slope,  BLDC_Intercept);
 	
-	
+#if 0	
 	//If adjusment is requested and motor is turned on
 	if (RPM_Adjust_requested && (BLDC_getPower() == 1)){
 		RPM_Adjust_requested = false;
@@ -196,6 +200,7 @@ uint8_t BLDC_RPM_control(void){
 			TIM_SetCompare2(BLDC_PWM_TIMER, (uint32_t) PWM_Pulse); /* Set the Capture Compare Register value Directly*/
 		}
 	}
+#endif	
 	return 1;
 }
 
@@ -209,7 +214,7 @@ uint8_t BLDC_RPM_control(void){
 uint8_t BLDC_powerOn(void){
 	FGPeriod = 0; //Reset value. It might be left unreset from previous operation if FGPeriod timer has not expired yet
 	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
-	GPIO_SetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
+//	GPIO_SetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
 	return 1;
 }
 
@@ -220,7 +225,7 @@ uint8_t BLDC_powerOff(void){
 	BLDC_RPM_target = 0;  //Request RPM = 0
 	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
 	BLDC_setTimerPWM(0);				//Stop PWM generation
-	GPIO_ResetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
+//	GPIO_ResetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
 	return 1;
 }
 
@@ -228,7 +233,8 @@ uint8_t BLDC_powerOff(void){
  * \brief Get status of BLDC motor power
  */
 uint8_t BLDC_getPower(void){
-	return GPIO_ReadOutputDataBit(BLDC_POWER_GPIO_PORT, BLDC_POWER_PIN);
+//	return GPIO_ReadOutputDataBit(BLDC_POWER_GPIO_PORT, BLDC_POWER_PIN);
+	return 0;
 }
 
 /**
@@ -298,7 +304,7 @@ uint32_t BLDC_getPWM(){
 	uint32_t Pulse, Period;
 	
 	Period = BLDC_PWM_TIMER_FREQ / BLDC_PWM_FREQ;
-	Pulse = TIM_GetCapture2(BLDC_PWM_TIMER);
+//	Pulse = TIM_GetCapture2(BLDC_PWM_TIMER);
 	Duty = (uint32_t)((Pulse * 1000) / Period);
 	return Duty;
 }
@@ -315,10 +321,10 @@ uint32_t BLDC_getFGPeriod(void){
  * \brief Set direction of BLDC motor
  */
 uint8_t BLDC_SetDirection(BLDC_DirectionTypeDef Dir){
-	if (Dir == BLDC_CLOCKWISE) 
-		GPIO_ResetBits(BLDC_DIR_GPIO_PORT, BLDC_DIR_PIN);
-	else 
-		GPIO_SetBits(BLDC_DIR_GPIO_PORT, BLDC_DIR_PIN);
+//	if (Dir == BLDC_CLOCKWISE) 
+//		GPIO_ResetBits(BLDC_DIR_GPIO_PORT, BLDC_DIR_PIN);
+//	else 
+//		GPIO_SetBits(BLDC_DIR_GPIO_PORT, BLDC_DIR_PIN);
 	return 1;
 }
 
@@ -327,9 +333,9 @@ uint8_t BLDC_SetDirection(BLDC_DirectionTypeDef Dir){
  * \retval Direction in BLDC_DirectionTypeDef type
  */
 BLDC_DirectionTypeDef BLDC_GetDirection(void){
-	if (GPIO_ReadOutputDataBit(BLDC_DIR_GPIO_PORT, BLDC_DIR_PIN) == Bit_SET) 
+//	if (GPIO_ReadOutputDataBit(BLDC_DIR_GPIO_PORT, BLDC_DIR_PIN) == Bit_SET) 
 		return BLDC_COUNTER_CLOCKWISE;
-	else
+//	else
 		return BLDC_CLOCKWISE;
 }
 
@@ -446,13 +452,13 @@ static uint8_t BLDC_setTimerPWM(uint32_t pwm){
 	//motor is not turned on
 	if (BLDC_getPower() == 0) {
 		//Stop PWM
-		TIM_OCInitStructure.TIM_Pulse = 0;
-		TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
+//		TIM_OCInitStructure.TIM_Pulse = 0;
+//		TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
 		return 0;
 	}
 	
-	TIM_OCInitStructure.TIM_Pulse = (uint16_t) pwm;
-  TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
+//	TIM_OCInitStructure.TIM_Pulse = (uint16_t) pwm;
+//  TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
 	return 1;
 }
 
@@ -462,7 +468,7 @@ static uint8_t BLDC_setTimerPWM(uint32_t pwm){
   * @retval None
   */
 static void BLDC_GPIO_Config(void){
-	
+#if 0	
 	/* GPIOC Periph clock enable */
   RCC_AHBPeriphClockCmd(BLDC_POWER_GPIO_CLK, ENABLE);
 	
@@ -492,6 +498,7 @@ static void BLDC_GPIO_Config(void){
     
   /* Connect TIM Channels to AF2 */
   GPIO_PinAFConfig(BLDC_PWM_GPIO_PORT, BLDC_PWM_SOURCE, BLDC_PWM_AF);
+#endif
 }
 
 /**
@@ -501,6 +508,7 @@ static void BLDC_GPIO_Config(void){
   */
 static void TIM_FG_Config(void)
 {
+#if 0	
   TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
   TIM_ICInitTypeDef  TIM_ICInitStructure;
   GPIO_InitTypeDef GPIO_InitStructure;
@@ -565,6 +573,7 @@ static void TIM_FG_Config(void)
   /* Enable the CCx and Timer upadate Interrupt Requests*/
   TIM_ITConfig(BLDC_FG_TIMER, (BLDC_FG_CC), ENABLE);  
   TIM_ITConfig(BLDC_FG_TIMER, (BLDC_FG_Update), ENABLE);  
+#endif
 }
 
 /**
@@ -574,6 +583,7 @@ static void TIM_FG_Config(void)
   */
 static void TIM_PWM_Config(void)
 {
+#if 0
 	uint16_t CCR_Val = 10;
   TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
 
@@ -621,4 +631,5 @@ static void TIM_PWM_Config(void)
   TIM_Cmd(BLDC_PWM_TIMER, ENABLE);
   
   TIM_GenerateEvent(BLDC_PWM_TIMER, TIM_EventSource_Update);
+#endif
 }

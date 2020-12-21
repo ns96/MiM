@@ -1,8 +1,11 @@
 #ifndef _LIMITSW_H
 #define _LIMITSW_H
-	#include "stm32f0xx.h"
-	#include "board.h"
-	
+
+#include "../board.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif	
 	typedef enum {
 		LIMIT_SWITCH_OK,
 		LIMIT_SWITCH_LIMIT
@@ -10,4 +13,7 @@
 	
 	uint8_t LimitSW_Init(void); //Must be called from initialization section
 	LIMIT_StatusTypeDef CheckLimitSwitches(void);
+#ifdef __cplusplus
+}
+#endif
 #endif

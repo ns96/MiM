@@ -1,18 +1,21 @@
 #ifndef _A4988_H
 #define _A4988_H
-	#include "stm32f0xx.h"
-	#include "board.h"
+
+	#include "../board.h"
 
 
 //-------------- STEP motor control -------------
 
-#define STEP_PWM_CLOCK_BASE	SystemCoreClock	//FG timer base clock frequency
+#define STEP_PWM_CLOCK_BASE	8000000	//FG timer base clock frequency
 #define STEP_PWM_TIMER_FREQ	100000 					//TIMx PWM timer frequency
 #define STEP_PWM_MIN_FREQ		2								//Minimum allowed PWM frequency. Must be higher than STEP_TIMER_FREQ / 0xFFFF
 #define STEP_PWM_MAX_FREQ		50000 					//Max allowed PWM frequency. Should not exceed STEP_TIMER_FREQ / 2.
 #define STEP_DEF_FREQ				200 						//Default PWM frequency
 #define STEP_DEF_STEPS_PER_DIST	2400 				//Default steps per Distance value
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 	//Exported definitions
 	typedef enum {
 		STEP_NOT_MOVING = 0,
@@ -59,5 +62,7 @@
 	uint32_t STEP_getStepPDist(void);
 	uint8_t STEP_SetDirection(STEP_DirectionTypeDef Dir);
 	STEP_DirectionTypeDef STEP_GetDirection(void);
-
+#ifdef __cplusplus
+}
+#endif
 #endif

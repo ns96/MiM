@@ -1,6 +1,9 @@
 	#ifndef _COMMANDS_H_
 	#define _COMMANDS_H_
-	
+
+#ifdef __cplusplus
+extern "C" {
+#endif	
 	typedef enum {
 		CMD_OK,
 		CMD_UNRECOGNIZED_CMD,
@@ -8,6 +11,9 @@
 		CMD_INVALID_CRC,
 		CMD_INVALID_STATE,
 	} CMD_StatusTypedef;
+#ifdef __cplusplus
+}
+#endif
 	
 	#define CMD_VERSION		"MIM 1.0.0"	//Version string
 	
