@@ -8,15 +8,27 @@
 #include "src/Drivers/XY-KPWM.h"
 
 unsigned long currentTime = 0, loopTime = 0;
-
+int counter = 0; 
+extern volatile uint16_t FGPeriod;
+extern volatile uint16_t FGPeriod2;
+extern volatile uint8_t BLDC_FG_HW_Mode;
 
 void setup() {
   //Chinese boards are hard to program when the USB serial port is busy. delay helps to start programing the board without magic.
   delay(3000);
-    //Initialize the peripherals
-  //Serial.begin(19200);
+  //Set clocksource of time Timer to clock/2
+  //now Arduino time faster in 32 times
+  #if defined(MILLIS_USE_TIMERB2) 
+  TCB2.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
+               | 1 << TCB_ENABLE_bp;   /* Enable: enabled */
+  #elif defined(MILLIS_USE_TIMERB3)
+  TCB3.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
+               | 1 << TCB_ENABLE_bp;   /* Enable: enabled */
+  #endif
+  Serial.begin(19200);
   Serial1.begin(19200);
-  Serial1.println("start");
+  //Serial1.println("start");
+  
   BLDC_init();
   A4988_Init();
   LED_Init();
@@ -24,16 +36,16 @@ void setup() {
   XY_KPWM_Init();
   // Turn on power LED
   LED_Set(LED_RED, LED_ON);
-//  analogWriteFrequency(32);
+
 }
 
 extern "C" void board_serial_print(char *line){
-  Serial.print(line);
+//  Serial.print(line);
   Serial1.print(line);    
 }
 
 void board_serial_println(String line){
-  Serial.println(line);
+ // Serial.println(line);
   Serial1.println(line);    
 }
 
@@ -49,23 +61,45 @@ void serial_read(void){
   }   
 }
 
-
 void loop() {
 
   currentTime = millis();
   serial_read();
   
-  if(currentTime < (loopTime + 100)) {
+  if(currentTime < (loopTime + 100 * 32)) {
     return;
   }
-  //BOARD_SERIAL.println("Time:"+(String)(currentTime));
+  
   loopTime = currentTime;
-  if (changePWMSpeed) {
-    board_serial_println("XYPWM:"+(String)(pwmSpeed));  
+  //create 1 sec events
+  counter++;
+  if (counter > 7) {
+    counter = 1;
   }
-  //BOARD_SERIAL.println("XYPWM:"+(String)(pwmSpeed)); 
+  //Serial1.println((String)(FGPeriod) + " : " +(String)(FGPeriod2) +" : " +(String)(BLDC_FG_HW_Mode));  
+  if (changeXYSpeed) {
+    if (XY_Speed > 0) {
+      //enable BLDC
+      if (!BLDC_getPower()) {
+        BLDC_powerOn();
+      }
+      //set RPM
+      BLDC_setRPM(XY_Speed);
+    } else {
+      //XY disabled. turnoff
+      BLDC_powerOff();
+    }
+    //board_serial_println("XYPWM:"+(String)(XY_Speed));
+    changeXYSpeed = false;  
+  }
+  //0.7 sec interval
+  if (counter == 7) {
+    XY_XPWM_Process();
+    BLDC_FG_Process();
+  }
+  
   //Adjust BLDC motor speed
-  //BLDC_RPM_control();
+  BLDC_RPM_control();
   //Blink LEDs
   LED_Blinker();
 }

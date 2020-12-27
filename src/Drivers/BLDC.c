@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <stdint.h>
 #include "BLDC.h"
 #include "LED.h"
@@ -5,11 +6,10 @@
 #include <stdlib.h>
 
 //-------------- private variables -------------
-//	GPIO_InitTypeDef        GPIO_InitStructure;
-//	TIM_OCInitTypeDef  			TIM_OCInitStructure;
-	static volatile bool RPM_Adjust_requested = false, BLDC_Startup_Mode = false, Skip_FG_Pulse = false;
+	static volatile bool RPM_Adjust_requested = false, BLDC_Startup_Mode = false, Skip_FG_Pulse = false, BLDC_power = 0;
 	static volatile uint32_t BLDC_RPM_target = 0;
-	static volatile uint16_t FGPeriod = 0; //Period of FG signal
+	volatile uint16_t FGPeriod = 0; //Period of FG signal
+	volatile uint16_t FGPeriod2 = 0; //Period of FG signal
 	static volatile uint32_t motorHalted_cnt=0;
 	static volatile uint32_t loopCount = 0; //Used to remain in startupMode for 1 second to smooth out starting at low rpms
 	static volatile uint32_t BLDC_Startup_PWM = BLDC_STARTUP_PWM_DEF;		//Default PWM to be set at motor startup
@@ -20,6 +20,10 @@
 	static uint8_t  FGPeriodHistInd = 0, FGPeriodHistCnt = 0; //History of pulse length required for averaging: index in array and registered pulses count
 	static uint16_t FGPeriodHist[BLDC_FG_AVERAGING_COUNT]; //History of pulse length required for averaging
 	#endif
+	static volatile bool BLDC_fg_int = false;
+	static volatile uint32_t timeFGOld = 0;
+	static volatile uint32_t timeFG = 0;
+	volatile uint8_t BLDC_FG_HW_Mode = FG_HW_NOINIT;
 
 //---------------  Internal functions prototypes -------------------
 	static inline uint16_t FG2RPM (uint16_t FGPeriod);
@@ -51,16 +55,25 @@ uint8_t BLDC_init(void){
 *				Exported Functions - interrupts and timers handling							
 ********************************************************* */
 
+void BLDC_FG_Process(void){
+if (BLDC_fg_int) {
+      BLDC_fg_int = false;
+    } else {
+      //PWM signal not detected for BLDC_FG
+      BLDC_FG_PulseMissing();
+    }
+}
+
 /**
  * \brief FG period measuring timer has timed out. FG pulse is missing.
  * 				Must be called in corresponding Timer Update interrupt
  */
 void BLDC_FG_PulseMissing(void){
-/*
+
 	//Stop blinking LED
 	LED_Set(LED_GREEN, LED_OFF);
 	//Is the motor supposed to be running?
-	if (TIM_GetCapture2(BLDC_PWM_TIMER)>0){
+	if ((TCA0.SINGLE.CTRLB & (1 << TCA_SINGLE_CMP0EN_bp)) > 0){
 		//Increment motor halted timer. 
 		//No signs of motor spinning for ~10seconds?
 		if (++motorHalted_cnt>10){
@@ -75,23 +88,28 @@ void BLDC_FG_PulseMissing(void){
 	//Clear period value globally
 
 	FGPeriod = 0; 
-*/	
+	
+}
+
+ISR(TCB0_INT_vect) {
+	FGPeriod2 = FG_TIMER.CCMP; // reading CCMP clears interrupt flag
+	//convert period 8 MHZ timer to period of 100000 HZ timer
+	FGPeriod2 /= 80;
+	if (BLDC_FG_HW_Mode == 1) {
+	  BLDC_FG_PulseDetected(FGPeriod2);
+	}
 }
 
 /**
  * \brief Converts FG period measured with Timer to actual RPM
+
  * 				Must be called in corresponding Input Capture interrupt
  */
-uint8_t BLDC_FG_PulseDetected(void){
-#if 0
-		uint16_t CapturedValue = 0;
-		
+
+uint8_t BLDC_FG_PulseDetected(uint16_t CapturedValue){
+
+		BLDC_fg_int = true;
 		motorHalted_cnt=0;
-	
-		//Read current pulse value
-		CapturedValue = TIM_GetCapture1(BLDC_FG_TIMER);
-		//reset timer for new pulse detection
-		TIM_SetCounter(BLDC_FG_TIMER, 0);
 	
 		//Ignore first FG pulse. Fake pulse is generated when motor's power is switched
 		if (Skip_FG_Pulse) {
@@ -129,7 +147,6 @@ uint8_t BLDC_FG_PulseDetected(void){
 			// Adjust RPM at every FG pulse in BLDC startup mode (not every 100 ms as in normal mode)
 			if (BLDC_Startup_Mode == true) {return BLDC_RPM_control();}
 		}
-#endif		
 		return 1;
 }
 
@@ -143,14 +160,19 @@ uint8_t BLDC_RPM_control(void){
 	//printf("RPM: %d, %d, %d, %d, %d\r\n", BLDC_RPM_target, BLDC_getRPM(),  TIM_GetCapture2(BLDC_PWM_TIMER), BLDC_getFGPeriod(), motorHalted_cnt);
 	//printf("BLDC: %d, %d, %d\r\n", BLDC_Startup_PWM, BLDC_Slope,  BLDC_Intercept);
 	
-#if 0	
 	//If adjusment is requested and motor is turned on
 	if (RPM_Adjust_requested && (BLDC_getPower() == 1)){
 		RPM_Adjust_requested = false;
 		
 		//Get actual RPM
 		RPM_Act = BLDC_getRPM();
-		
+		//Set HW mode interrupt for RPM > 4000
+		if (RPM_Act > 4000) {
+			BLDC_FG_Interrupt_HW_Mode(1);	
+		} else {
+			BLDC_FG_Interrupt_HW_Mode(0);	
+		}
+				
 		//Do not adjust if RPM speed is not requested or motor is not running
 		if ((BLDC_RPM_target == 0) || (RPM_Act == 0)) return 0; 
 			
@@ -159,8 +181,8 @@ uint8_t BLDC_RPM_control(void){
 			uint16_t	Step;
 			int64_t 	Difference = 0;
 			//Get current PWM parameter
-			int64_t PWM_Pulse = TIM_GetCapture2(BLDC_PWM_TIMER);;
-			
+			int64_t PWM_Pulse = 1000 - TCA0.SINGLE.CMP0BUF;
+						
 			//Calculate RPM difference
 			Difference = BLDC_RPM_target - RPM_Act;
 			
@@ -197,10 +219,9 @@ uint8_t BLDC_RPM_control(void){
 				}
 			}
 			//Set new PWM parameter
-			TIM_SetCompare2(BLDC_PWM_TIMER, (uint32_t) PWM_Pulse); /* Set the Capture Compare Register value Directly*/
+			TCA0.SINGLE.CMP0BUF = (uint16_t) (1000 - PWM_Pulse);
 		}
 	}
-#endif	
 	return 1;
 }
 
@@ -215,6 +236,10 @@ uint8_t BLDC_powerOn(void){
 	FGPeriod = 0; //Reset value. It might be left unreset from previous operation if FGPeriod timer has not expired yet
 	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
 //	GPIO_SetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
+	BLDC_GPIO_Config();
+	TIM_PWM_Config();
+	BLDC_FG_Interrupt_HW_Mode(0);
+	BLDC_power = 1;
 	return 1;
 }
 
@@ -226,6 +251,8 @@ uint8_t BLDC_powerOff(void){
 	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
 	BLDC_setTimerPWM(0);				//Stop PWM generation
 //	GPIO_ResetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
+	BLDC_FG_Interrupt_HW_Mode(0);
+	BLDC_power = 0;
 	return 1;
 }
 
@@ -234,7 +261,7 @@ uint8_t BLDC_powerOff(void){
  */
 uint8_t BLDC_getPower(void){
 //	return GPIO_ReadOutputDataBit(BLDC_POWER_GPIO_PORT, BLDC_POWER_PIN);
-	return 0;
+	return BLDC_power;
 }
 
 /**
@@ -304,7 +331,7 @@ uint32_t BLDC_getPWM(){
 	uint32_t Pulse, Period;
 	
 	Period = BLDC_PWM_TIMER_FREQ / BLDC_PWM_FREQ;
-//	Pulse = TIM_GetCapture2(BLDC_PWM_TIMER);
+	Pulse = TCA0.SINGLE.CMP0;
 	Duty = (uint32_t)((Pulse * 1000) / Period);
 	return Duty;
 }
@@ -321,10 +348,10 @@ uint32_t BLDC_getFGPeriod(void){
  * \brief Set direction of BLDC motor
  */
 uint8_t BLDC_SetDirection(BLDC_DirectionTypeDef Dir){
-//	if (Dir == BLDC_CLOCKWISE) 
-//		GPIO_ResetBits(BLDC_DIR_GPIO_PORT, BLDC_DIR_PIN);
-//	else 
-//		GPIO_SetBits(BLDC_DIR_GPIO_PORT, BLDC_DIR_PIN);
+	if (Dir == BLDC_CLOCKWISE)
+		digitalWrite(BLDC_DIR_PIN,LOW);
+	else 
+		digitalWrite(BLDC_DIR_PIN,HIGH);
 	return 1;
 }
 
@@ -333,9 +360,9 @@ uint8_t BLDC_SetDirection(BLDC_DirectionTypeDef Dir){
  * \retval Direction in BLDC_DirectionTypeDef type
  */
 BLDC_DirectionTypeDef BLDC_GetDirection(void){
-//	if (GPIO_ReadOutputDataBit(BLDC_DIR_GPIO_PORT, BLDC_DIR_PIN) == Bit_SET) 
+	if (digitalRead(BLDC_DIR_PIN) == Bit_SET) 
 		return BLDC_COUNTER_CLOCKWISE;
-//	else
+	else
 		return BLDC_CLOCKWISE;
 }
 
@@ -452,13 +479,17 @@ static uint8_t BLDC_setTimerPWM(uint32_t pwm){
 	//motor is not turned on
 	if (BLDC_getPower() == 0) {
 		//Stop PWM
-//		TIM_OCInitStructure.TIM_Pulse = 0;
-//		TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
+		//disable output
+		TCA0.SINGLE.CTRLB &= ~(1 << TCA_SINGLE_CMP0EN_bp);
 		return 0;
 	}
 	
-//	TIM_OCInitStructure.TIM_Pulse = (uint16_t) pwm;
-//  TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
+	TCA0.SINGLE.CMP0BUF = (uint16_t) (1000 - pwm);
+	//enable output if disabled
+	if ((TCA0.SINGLE.CTRLB & (1 << TCA_SINGLE_CMP0EN_bp)) == 0){
+		TCA0.SINGLE.CTRLB |= (1 << TCA_SINGLE_CMP0EN_bp);
+	}
+
 	return 1;
 }
 
@@ -468,37 +499,12 @@ static uint8_t BLDC_setTimerPWM(uint32_t pwm){
   * @retval None
   */
 static void BLDC_GPIO_Config(void){
-#if 0	
-	/* GPIOC Periph clock enable */
-  RCC_AHBPeriphClockCmd(BLDC_POWER_GPIO_CLK, ENABLE);
-	
-	/* Configure POWER PIN as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = BLDC_POWER_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(BLDC_POWER_GPIO_PORT, &GPIO_InitStructure);
-	
-	/* Configure DIR PIN as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = BLDC_DIR_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(BLDC_DIR_GPIO_PORT, &GPIO_InitStructure);
-	
-  /* GPIOA Configuration: PWM out - BLDC_PWM_TIMER CH2 (PB5) */
-  GPIO_InitStructure.GPIO_Pin = BLDC_PWM_PIN ;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
-  GPIO_Init(BLDC_PWM_GPIO_PORT, &GPIO_InitStructure); 
-    
-  /* Connect TIM Channels to AF2 */
-  GPIO_PinAFConfig(BLDC_PWM_GPIO_PORT, BLDC_PWM_SOURCE, BLDC_PWM_AF);
-#endif
+	pinMode(BLDC_FG_PIN, INPUT_PULLUP);
+	pinMode(BLDC_DIR_PIN, OUTPUT);	
+	pinMode(BLDC_PWM_PIN, OUTPUT);
+	digitalWrite(BLDC_PWM_PIN, LOW);
+	PORTMUX.TCAROUTEA = BLDC_PWM_PORTMUX;
+	BLDC_FG_Interrupt_HW_Mode(0);
 }
 
 /**
@@ -508,72 +514,25 @@ static void BLDC_GPIO_Config(void){
   */
 static void TIM_FG_Config(void)
 {
-#if 0	
-  TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
-  TIM_ICInitTypeDef  TIM_ICInitStructure;
-  GPIO_InitTypeDef GPIO_InitStructure;
-  NVIC_InitTypeDef NVIC_InitStructure;
   
-  /* TIM clock enable */
-  RCC_APB2PeriphClockCmd(BLDC_FG_TIMER_CLK, ENABLE);
+  FG_TIMER.CTRLA = 0; // Turn off channel for configuring
+  FG_TIMER.CTRLB = 0 << TCB_ASYNC_bp      /* Asynchronous Enable: disabled */
+               | 0 << TCB_CCMPEN_bp   /* Pin Output Enable: disabled */
+               | 0 << TCB_CCMPINIT_bp /* Pin Initial State: disabled */
+               | TCB_CNTMODE_FRQ_gc;  /* Input Capture Frequency measurement */
 
-  /* GPIO clock enable */
-  RCC_AHBPeriphClockCmd(BLDC_FG_GPIO_CLK, ENABLE);
-  
-  /* TIM channel pin configuration */
-  GPIO_InitStructure.GPIO_Pin =  BLDC_FG_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP; //Enable pull-up to prevent pin floating while BLDC is disconnected
-  GPIO_Init(BLDC_FG_GPIO_PORT, &GPIO_InitStructure);
+  // TCB0.DBGCTRL = 0 << TCB_DBGRUN_bp; /* Debug Run: disabled */
 
-  /* Connect TIM pins to AF2 */
-  GPIO_PinAFConfig(BLDC_FG_GPIO_PORT, BLDC_FG_SOURCE, BLDC_FG_AF);
-    
-  /* ---------------------------------------------------------------------------
-    BLDC_FG_TIMER Configuration
-    Note: 
-     BLDC_FG_CLOCK_BASE (SystemCoreClock) variable holds HCLK frequency and is defined in system_stm32f0xx.c file.
-     Each time the core clock (HCLK) changes, user had to call SystemCoreClockUpdate()
-     function to update SystemCoreClock variable value. Otherwise, any configuration
-     based on this variable will be incorrect. 
-  --------------------------------------------------------------------------- */
-  
-  /* Time base configuration */
-  TIM_TimeBaseStructure.TIM_Period = 0xFFFF; //Set max timer period
-  TIM_TimeBaseStructure.TIM_Prescaler = (uint16_t)((BLDC_FG_CLOCK_BASE / BLDC_FG_TIMER_FREQ) - 1);
-  TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-	TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
-  TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+  FG_TIMER.EVCTRL = 1 << TCB_CAPTEI_bp    /* Event Input Enable: enabled */
+                | 0 << TCB_EDGE_bp    /* Event Edge: disabled */
+                | 1 << TCB_FILTER_bp; /* Input Capture Noise Cancellation Filter: enabled */
 
-  TIM_TimeBaseInit(BLDC_FG_TIMER, &TIM_TimeBaseStructure);
+  FG_TIMER.INTCTRL = 1 << TCB_CAPT_bp /* Capture or Timeout: enabled */;
 
-	
-  /* TIM1 configuration: Input Capture mode ---------------------
-  ------------------------------------------------------------ */
-
-  TIM_ICInitStructure.TIM_Channel = BLDC_FG_TIM_CH;
-  TIM_ICInitStructure.TIM_ICPolarity = TIM_ICPolarity_Rising;
-  TIM_ICInitStructure.TIM_ICSelection = TIM_ICSelection_DirectTI;
-  TIM_ICInitStructure.TIM_ICPrescaler = TIM_ICPSC_DIV1;
-  TIM_ICInitStructure.TIM_ICFilter = 0x0;
-
-  TIM_ICInit(BLDC_FG_TIMER, &TIM_ICInitStructure);
-  
-  /* TIM enable counter */
-  TIM_Cmd(BLDC_FG_TIMER, ENABLE);
-
-  /* Enable the TIMx global Interrupt */
-  NVIC_InitStructure.NVIC_IRQChannel = BLDC_FG_TIM_IRQ;
-  NVIC_InitStructure.NVIC_IRQChannelPriority = 2;
-  NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-  NVIC_Init(&NVIC_InitStructure);
-	
-  /* Enable the CCx and Timer upadate Interrupt Requests*/
-  TIM_ITConfig(BLDC_FG_TIMER, (BLDC_FG_CC), ENABLE);  
-  TIM_ITConfig(BLDC_FG_TIMER, (BLDC_FG_Update), ENABLE);  
-#endif
+  FG_TIMER.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
+               | 1 << TCB_ENABLE_bp   /* Enable: enabled */
+               | 0 << TCB_RUNSTDBY_bp /* Run Standby: disabled */
+               | 0 << TCB_SYNCUPD_bp; /* Synchronize Update: disabled */
 }
 
 /**
@@ -583,53 +542,62 @@ static void TIM_FG_Config(void)
   */
 static void TIM_PWM_Config(void)
 {
-#if 0
 	uint16_t CCR_Val = 10;
-  TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
-
-  /* BLDC_PWM_TIMER clock enable */
-  RCC_APB1PeriphClockCmd(BLDC_PWM_TIMER_CLK, ENABLE);
-
-  /* GPIO clock enable */
-  RCC_AHBPeriphClockCmd(BLDC_PWM_GPIO_CLK, ENABLE);
- 
-  TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-
-  TIM_OCStructInit(&TIM_OCInitStructure);
-
-  /* ---------------------------------------------------------------------------
-    Note: 
-     SystemCoreClock variable holds HCLK frequency and is defined in system_stm32f0xx.c file.
-     Each time the core clock (HCLK) changes, user had to call SystemCoreClockUpdate()
-     function to update SystemCoreClock variable value. Otherwise, any configuration
-     based on this variable will be incorrect. 
-     
-  --------------------------------------------------------------------------- */
-  
-  /* Time base configuration */
-  TIM_TimeBaseStructure.TIM_Period = (uint16_t)(BLDC_PWM_TIMER_FREQ / BLDC_PWM_FREQ);
-  TIM_TimeBaseStructure.TIM_Prescaler = (uint16_t)((BLDC_PWM_CLOCK_BASE / BLDC_PWM_TIMER_FREQ) - 1);
-  TIM_TimeBaseStructure.TIM_Prescaler = 0;
-  TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-	TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
-  TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-
-  TIM_TimeBaseInit(BLDC_PWM_TIMER, &TIM_TimeBaseStructure);
-
-  /* Output Compare Active Mode configuration: Channel2 */
-  TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM2;
-  TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-  TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
-
-  TIM_OCInitStructure.TIM_Pulse = CCR_Val;
-  TIM_OC2Init(BLDC_PWM_TIMER, &TIM_OCInitStructure);
 	
-  TIM_ARRPreloadConfig(BLDC_PWM_TIMER, DISABLE); 
-  TIM_OC2PreloadConfig(BLDC_PWM_TIMER, TIM_OCPreload_Disable);
- 
-  /* BLDC_PWM_TIMER enable counter */
-  TIM_Cmd(BLDC_PWM_TIMER, ENABLE);
+	TCA0.SINGLE.CTRLB = 0 << TCA_SINGLE_ALUPD_bp         /* Auto Lock Update: disabled */
+	                    | 0 << TCA_SINGLE_CMP0EN_bp      /* Compare 0 Enable: disabled */
+	                    | 0 << TCA_SINGLE_CMP1EN_bp      /* Compare 1 Enable: enabled */
+	                    | 0 << TCA_SINGLE_CMP2EN_bp      /* Compare 2 Enable: disabled */
+	                    | TCA_SINGLE_WGMODE_SINGLESLOPE_gc; /*  */
+	
+	TCA0.SINGLE.CMP0BUF = (1000 - CCR_Val); /* Compare Register 0: 0x10 */
+	TCA0.SINGLE.PER = (uint16_t)(BLDC_PWM_TIMER_FREQ / BLDC_PWM_FREQ); /* Period: 0x3e8 */
+
+	TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc /* System Clock / 2 */
+	                    | 1 << TCA_SINGLE_ENABLE_bp /* Module Enable: enabled */;
   
-  TIM_GenerateEvent(BLDC_PWM_TIMER, TIM_EventSource_Update);
-#endif
+}
+
+/**
+ * @brief Software interrupt handler for calculating FG pin signal frequency in timer pulses
+ * @param None
+ * @retval None
+ */
+void BLDC_FG_Interrupt(void) {
+	uint32_t cnt;
+	timeFG = micros();
+	if ((timeFGOld == 0) || (timeFGOld > timeFG)) {
+		timeFGOld = timeFG;
+		return;
+	}
+	
+	//FG do not use hardware timer for detecting frequency. so we use time to calculate counter value.
+	//convert time between pulses to timer counter value
+	cnt = (timeFG - timeFGOld)/ 320;
+	timeFGOld = timeFG;
+	BLDC_FG_PulseDetected(cnt);
+	
+	
+}
+
+/**
+ * @brief Set interrupt mode for FG pin
+ * @param None
+ * @retval None
+ */
+void BLDC_FG_Interrupt_HW_Mode(uint8_t mode) {
+	if (BLDC_FG_HW_Mode == mode) {
+		return;
+	}
+	BLDC_FG_HW_Mode = mode;
+	if (mode) {
+		detachInterrupt(BLDC_FG_PIN);
+		//pinMode(BLDC_FG_PIN, INPUT_PULLUP);
+		//set route from FG pin to timer
+		EVSYS.CHANNEL0 = BLDC_FG_PIN_EVSYS_PORT;
+		EVSYS.USERTCB0 = EVSYS_CHANNEL_CHANNEL0_gc; // to TCB0
+	} else {
+		attachInterrupt(BLDC_FG_PIN, BLDC_FG_Interrupt, RISING);
+	}
+	
 }

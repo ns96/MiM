@@ -2,54 +2,98 @@
 #include "XY-KPWM.h"
 #include "../board.h"
 
-// keep track of values needed to read PWM signal
-volatile unsigned long timeoldPWM = 0; // used to calculate the PWM duty cycle from the XY-KPWM
-volatile unsigned long pwm_count = 0; // used to check if we are receiving a pwm signal from XY-KPWM
-volatile unsigned long pwm_count_old = 0;
-volatile long pwm_value = 0; // The PWM value in microseconds
-unsigned long sumPWMSpeed = 0; // Sum of PWM value for averaging
-unsigned long pwmSpeedOld = 0;
-boolean changePWMSpeed = false;
-unsigned long pwmSpeed = 0; // rpm speed set by pwm signal
+static volatile unsigned long pwm_count = 0; // used to check if we are receiving a pwm signal from XY-KPWM
+static volatile unsigned long sumPWMDuty = 0; // Sum of PWM value for averaging
+static volatile unsigned long XY_SpeedOld = 0;
+volatile boolean changeXYSpeed = false;
+volatile unsigned long XY_Speed = 0; // rpm speed set by pwm signal
+static volatile bool XY_XPWM_int = false;
 
-void risingPWM() {
-  attachInterrupt(XY_XPWM_PIN, fallingPWM, FALLING);
-  
-  timeoldPWM = micros();
-}
+/**
+  * @brief  Interrupt for XY_XPW when readed signal duty
+  * @param  None
+  * @retval None
+  */
 
-void fallingPWM() {
-  attachInterrupt(XY_XPWM_PIN, risingPWM, RISING);
-  
-  pwm_value = micros() - timeoldPWM;
-  sumPWMSpeed += pwm_value;
+ISR(TCB1_INT_vect) {
+  unsigned long duty = XY_KPWM_TIMER.CCMP; // reading CCMP clears interrupt flag
+  XY_XPWM_int = true;
+
+  sumPWMDuty += duty;
   pwm_count++;
 
   // average the speed
-  if(pwm_count % 100 == 0) { 
-    long speed10 = sumPWMSpeed/100; // average 100 readings
-    speed10 = (speed10 + 5)/10;
-    speed10 = 10*speed10;
-    pwmSpeed = speed10;
-
-    // check to if the speed was moved
-    if(pwmSpeed != pwmSpeedOld) {
-      pwmSpeedOld = pwmSpeed;
-      changePWMSpeed = true;
-    } else {
-      changePWMSpeed = false;
-    }
-
+  if(pwm_count == 5) { 
+    unsigned long speed10 = sumPWMDuty / 5; // average n readings
+	//convert pwm duty to RPM
+	//convert timer cnt to microsecond period
+	speed10 = (125 * speed10) / 1000;
+	speed10 = (speed10 + 5)/10;
+	speed10 = 100 * speed10;
+    XY_Speed = speed10;
+    pwm_count = 0;
     // reset the speed sum
-    sumPWMSpeed = 0;
+    sumPWMDuty = 0;
+	if (XY_SpeedOld != XY_Speed) {
+		XY_SpeedOld = XY_Speed;
+		changeXYSpeed = true;
+	}
   }
 }
 
+/**
+  * @brief  Check that interrupt was readed for time interval
+  *				 must be called every 1 s
+  * @param  None
+  * @retval None
+  */
+  
+void XY_XPWM_Process(void) {
+	if (XY_XPWM_int) {
+      XY_XPWM_int = false;
+	  return;
+	}
+    
+	//PWM signal not detected for XY_XPWM 
+	if (digitalRead(XY_XPWM_PIN)) {
+		XY_Speed = 10000;
+	} else {
+		XY_Speed = 0;
+	}
+	if (XY_SpeedOld != XY_Speed) {
+		XY_SpeedOld = XY_Speed;
+		changeXYSpeed = true;
+	}
+}
 
-
+/**
+  * @brief  Configure the GPIO and Timer.
+  * @param  None
+  * @retval None
+  */
 void XY_KPWM_Init(void) {
-  pinMode(XY_XPWM_PIN, INPUT_PULLUP);
-    // used to measure pwm signal
-  //TCCR1B = TCCR1B & 0b11111000 | 0x01; // set PWM frequency to 31khz
-  attachInterrupt(XY_XPWM_PIN, risingPWM, RISING);  
+  //configure pin	
+  pinMode(XY_XPWM_PIN, INPUT);
+  EVSYS.CHANNEL1 = XY_XPWM_PIN_EVSYS_PORT; // Route to XY_KPWM pin PA1; 
+  EVSYS.USERTCB1 = EVSYS_CHANNEL_CHANNEL1_gc;
+  
+  //configure timer for reading signal duty 
+  XY_KPWM_TIMER.CTRLA = 0; // Turn off channel for configuring
+  XY_KPWM_TIMER.CTRLB = 0 << TCB_ASYNC_bp      /* Asynchronous Enable: disabled */
+               | 0 << TCB_CCMPEN_bp   /* Pin Output Enable: disabled */
+               | 0 << TCB_CCMPINIT_bp /* Pin Initial State: disabled */
+               | TCB_CNTMODE_PW_gc;   /* Input Capture Pulse-Width measurement */
+
+  // TCB0.DBGCTRL = 0 << TCB_DBGRUN_bp; /* Debug Run: disabled */
+
+  XY_KPWM_TIMER.EVCTRL = 1 << TCB_CAPTEI_bp    /* Event Input Enable: enabled */
+                | 0 << TCB_EDGE_bp    /* Event Edge: disabled */
+                | 0 << TCB_FILTER_bp; /* Input Capture Noise Cancellation Filter: enabled */
+
+  XY_KPWM_TIMER.INTCTRL = 1 << TCB_CAPT_bp /* Capture or Timeout: enabled */;
+
+  XY_KPWM_TIMER.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
+               | 1 << TCB_ENABLE_bp   /* Enable: enabled */
+               | 0 << TCB_RUNSTDBY_bp /* Run Standby: disabled */
+               | 0 << TCB_SYNCUPD_bp; /* Synchronize Update: disabled */  
 }  

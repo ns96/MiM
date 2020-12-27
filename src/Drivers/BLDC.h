@@ -1,7 +1,7 @@
 #ifndef _BLDC_H_
 #define _BLDC_H_
 
-	#include "../board.h"
+#include "../board.h"
 
 //-------------- BLDC motor control -------------
 //RPM
@@ -21,6 +21,8 @@
 #define BLDC_SLOPE_DEF							950							// 820 Set the motor profile default slope * 100 for estimating PWM based on RPM
 #define BLDC_INTERCEPT_DEF					500							// Set the motor profile default intercept for estimating PWM based on RPM
 
+#define FG_HW_NOINIT			2
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -33,7 +35,7 @@ typedef enum {
 
 //Exported functions
 	uint8_t BLDC_init(void); //Must be called from initialization section
-	uint8_t 	BLDC_FG_PulseDetected(void); //Must be called in corresponding Input Capture interrupt
+	uint8_t BLDC_FG_PulseDetected(uint16_t CapturedValue);
 	void	BLDC_FG_PulseMissing(void); //Must be called in corresponding Timer Update interrupt
 	uint8_t BLDC_RPM_control(void); //Must be called every 100 ms (or other period - depends on application)
 
@@ -53,6 +55,9 @@ typedef enum {
 	uint32_t BLDC_getFGPeriod(void);
 	uint8_t BLDC_SetDirection(BLDC_DirectionTypeDef Dir);
 	BLDC_DirectionTypeDef BLDC_GetDirection(void);
+	void BLDC_FG_Process(void);
+	void BLDC_FG_Interrupt(void);
+	void BLDC_FG_Interrupt_HW_Mode(uint8_t mode);
 #ifdef __cplusplus
 }
 #endif	

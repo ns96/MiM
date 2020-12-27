@@ -6,8 +6,8 @@
 
 //-------------- STEP motor control -------------
 
-#define STEP_PWM_CLOCK_BASE	8000000	//FG timer base clock frequency
-#define STEP_PWM_TIMER_FREQ	100000 					//TIMx PWM timer frequency
+#define STEP_PWM_CLOCK_BASE	8000000	//timer base clock frequency
+#define STEP_PWM_TIMER_FREQ	STEP_PWM_CLOCK_BASE 					//TIMx PWM timer frequency
 #define STEP_PWM_MIN_FREQ		2								//Minimum allowed PWM frequency. Must be higher than STEP_TIMER_FREQ / 0xFFFF
 #define STEP_PWM_MAX_FREQ		50000 					//Max allowed PWM frequency. Should not exceed STEP_TIMER_FREQ / 2.
 #define STEP_DEF_FREQ				200 						//Default PWM frequency

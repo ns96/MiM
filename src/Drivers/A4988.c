@@ -1,15 +1,18 @@
+#include <Arduino.h>
 #include <stdint.h>
 #include "A4988.h"
 #include "LED.h"
 #include "LimitSW.h"
 
 //-------------- private variables -------------
-//static TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
-//static TIM_OCInitTypeDef  			TIM_OCInitStructure;
 static volatile uint32_t	STEP_steps_requested = 0, STEP_steps_moved = 0;	//Steps requested and moved
 static volatile uint32_t	STEP_PWM_freq = STEP_DEF_FREQ, STEP_PWM_Actual_freq = 0;	//Motor PWM frequency
 static volatile uint32_t	STEP_StepPDist = STEP_DEF_STEPS_PER_DIST;	//Steps per Distes value
 static volatile STEP_MicroModeTypeDef	STEP_MicroStepMode = STEP_FULL;
+static volatile STEP_NewPeriod = 0;
+
+static volatile uint8_t STEP_reset = 0, STEP_sleep = 0;
+
 
 //---------------  Internal functions prototypes -------------------
 static void STEP_GPIO_Config(void);
@@ -48,27 +51,26 @@ uint8_t A4988_Init(void)
  * \brief One STEP pulse comleted, make one more step if required
  * 				Must be called in corresponding Period Elapsed interrupt
  */
-void STEP_PWM_Completed(void){
+//void STEP_PWM_Completed(void){
+ISR(TCA0_CMP0_vect) {
+
 	//If limit swithes are not pressed and more steps are requested
-	if ((CheckLimitSwitches() == LIMIT_SWITCH_OK) && (STEP_steps_requested - STEP_steps_moved)){			
+	if ((CheckLimitSwitches() == LIMIT_SWITCH_OK) && (STEP_steps_requested - STEP_steps_moved - 1)){			
 			//Turn on LED
 			LED_Set(LED_GREEN, LED_BLINK);
-		
 			/* Different PWM frequency was requested
 			*	 Change it before generating another step
 			*/
 			if (STEP_PWM_Actual_freq != STEP_PWM_freq){
 				STEP_Set_Timer_PWM(STEP_PWM_freq);
-			} 
-			//Just generate another step
-			else {				
-//				TIM_Cmd(STEP_PWM_TIMER, ENABLE);  //Turn on timer
 			}
-		
 			STEP_steps_moved++;
+			
 	} else {
 		STEP_Stop();
 	}
+	/* The interrupt flag has to be cleared manually */
+	TCA0.SINGLE.INTFLAGS = TCA_SINGLE_CMP0_bm;
 }
 
 /** *****************************************
@@ -139,24 +141,6 @@ uint8_t	STEP_getStatus(STEP_DirectionTypeDef * Direction, uint32_t * Steps_moved
 uint8_t STEP_MicroSet(STEP_MicroModeTypeDef	Mode){
 	//Save current mode
 	STEP_MicroStepMode = Mode;
-	//Switch mode
-	switch(Mode){
-		case STEP_FULL:
-
-			break;
-		case STEP_HALF:
-
-			break;
-		case STEP_QUARTER:
-
-			break;
-		case STEP_EIGHTH:
-
-			break;
-		case STEP_SIXTEENTH:
-
-			break;
-	}
 	return 1;
 }
 /**
@@ -172,7 +156,9 @@ STEP_MicroModeTypeDef	STEP_MicroGet(void){
  */
 uint8_t STEP_enableOn(void){
 	STEP_Stop(); //clear previously requested steps if there are any
-//	GPIO_ResetBits(STEP_ENABLE_GPIO_PORT,STEP_ENABLE_PIN);
+	STEP_GPIO_Config();
+	digitalWrite(STEP_ENABLE_PIN,LOW);
+	STEP_PWM_Config();
 	return 1;
 }
 
@@ -181,7 +167,12 @@ uint8_t STEP_enableOn(void){
  */
 uint8_t STEP_enableOff(void){
 	STEP_Stop();
-//	GPIO_SetBits(STEP_ENABLE_GPIO_PORT,STEP_ENABLE_PIN);
+	digitalWrite(STEP_ENABLE_PIN,HIGH);
+						
+	TCA0.SINGLE.INTCTRL = 0 << TCA_SINGLE_CMP0_bp   /* Compare 0 Interrupt: disabled */
+                     | 0 << TCA_SINGLE_CMP1_bp /* Compare 1 Interrupt: disabled */
+                     | 0 << TCA_SINGLE_CMP2_bp /* Compare 2 Interrupt: disabled */
+                     | 0 << TCA_SINGLE_OVF_bp; /* Overflow Interrupt: enabled */
 	return 1;
 }
 
@@ -189,9 +180,9 @@ uint8_t STEP_enableOff(void){
  * \brief Get status of STEP motor enable
  */
 STEP_OnOffTypeDef STEP_getEnable(void){
-//	if (GPIO_ReadOutputDataBit(STEP_ENABLE_GPIO_PORT, STEP_ENABLE_PIN) == Bit_SET) 
-//		return STEP_OFF;
-//	else return STEP_ON;
+	if (digitalRead(STEP_ENABLE_PIN) == Bit_SET) 
+		return STEP_OFF;
+	else return STEP_ON;
 }
 
 /**
@@ -199,6 +190,7 @@ STEP_OnOffTypeDef STEP_getEnable(void){
  */
 uint8_t STEP_sleepOn(void){
 	STEP_Stop();
+	STEP_sleep = 0;
 //	GPIO_ResetBits(STEP_SLEEP_GPIO_PORT,STEP_SLEEP_PIN);
 	return 1;
 }
@@ -208,6 +200,7 @@ uint8_t STEP_sleepOn(void){
  */
 uint8_t STEP_sleepOff(void){
 	STEP_Stop(); //clear previously requested steps if there are any
+	STEP_sleep = 1;
 //	GPIO_SetBits(STEP_SLEEP_GPIO_PORT,STEP_SLEEP_PIN);
 	return 1;
 }
@@ -216,9 +209,10 @@ uint8_t STEP_sleepOff(void){
  * \brief Get status of STEP motor sleep
  */
 STEP_OnOffTypeDef STEP_getSleep(void){
-//	if (GPIO_ReadOutputDataBit(STEP_SLEEP_GPIO_PORT, STEP_SLEEP_PIN) == Bit_SET) 
+	if (STEP_sleep) 
 		return STEP_OFF;
-//	else return STEP_ON;
+	else 
+		return STEP_ON;
 }
 
 /**
@@ -226,6 +220,7 @@ STEP_OnOffTypeDef STEP_getSleep(void){
  */
 uint8_t STEP_resetOn(void){
 	STEP_Stop();
+	STEP_reset = 0;
 //	GPIO_ResetBits(STEP_RESET_GPIO_PORT,STEP_RESET_PIN);
 	return 1;
 }
@@ -235,6 +230,7 @@ uint8_t STEP_resetOn(void){
  */
 uint8_t STEP_resetOff(void){
 	STEP_Stop(); //clear previously requested steps if there are any
+	STEP_reset = 1;
 //	GPIO_SetBits(STEP_RESET_GPIO_PORT,STEP_RESET_PIN);
 	return 1;
 }
@@ -243,9 +239,10 @@ uint8_t STEP_resetOff(void){
  * \brief Get status of STEP motor reset
  */
 STEP_OnOffTypeDef STEP_getReset(void){
-//	if (GPIO_ReadOutputDataBit(STEP_RESET_GPIO_PORT, STEP_RESET_PIN) == Bit_SET) 
+	if (STEP_reset) 
 		return STEP_OFF;
-//	else return STEP_ON;
+	else 
+		return STEP_ON;
 }
 
 /**
@@ -294,10 +291,10 @@ uint8_t STEP_SetDirection(STEP_DirectionTypeDef Dir)
 {
 	switch (Dir){
 		case STEP_CLOCKWISE:
-//			GPIO_SetBits(STEP_DIR_GPIO_PORT, STEP_DIR_PIN);
+			digitalWrite(STEP_DIR_PIN,HIGH);
 			return 1;
 		case STEP_COUNTER_CLOCKWISE:
-//			GPIO_ResetBits(STEP_DIR_GPIO_PORT, STEP_DIR_PIN);
+			digitalWrite(STEP_DIR_PIN,LOW);
 			return 1;
 		default:
 			return 0;
@@ -309,9 +306,9 @@ uint8_t STEP_SetDirection(STEP_DirectionTypeDef Dir)
  * \retval Direction in STEP_DirectionTypeDef type
  */
 STEP_DirectionTypeDef STEP_GetDirection(void){
-//	if (GPIO_ReadOutputDataBit(STEP_DIR_GPIO_PORT, STEP_DIR_PIN) == Bit_SET) 
+	if (digitalRead(STEP_DIR_PIN) == Bit_SET) 
 		return STEP_CLOCKWISE;
-//	else
+	else
 		return STEP_COUNTER_CLOCKWISE;
 }
 
@@ -325,17 +322,21 @@ STEP_DirectionTypeDef STEP_GetDirection(void){
   * @retval Status - 1 if OK
   */
 static uint8_t STEP_Set_Timer_PWM(uint32_t freq){
-		//Calculate new period
-		uint32_t NewPeriod = STEP_PWM_TIMER_FREQ / freq;
-	
 		//Store actual PWM frequency
 		STEP_PWM_Actual_freq = freq;
 		
+		//Calculate new period
+		uint32_t STEP_NewPeriod = STEP_PWM_TIMER_FREQ / freq;
+
 		//Set PWM frequency with 50% duty
-//		TIM_TimeBaseStructure.TIM_Period = (uint16_t) NewPeriod; // set period duration
-//		TIM_TimeBaseInit(STEP_PWM_TIMER, &TIM_TimeBaseStructure);// reinititialise timer with new period value
-//		TIM_OCInitStructure.TIM_Pulse = (uint16_t) (NewPeriod / 2); // set pulse duration (50% Duty)
-//		TIM_OC1Init(STEP_PWM_TIMER, &TIM_OCInitStructure); //reinititialise output compare register
+		//refresh frequency when pin is low (phase 2)
+		TCA0.SINGLE.CMP0BUF = (uint16_t)(STEP_NewPeriod / 2); /* Compare Register 1: 0x10 */
+		TCA0.SINGLE.PERBUF = (uint16_t)(STEP_NewPeriod); /* Period*/
+		//enable output if disabled
+		if ((TCA0.SINGLE.CTRLB & (1 << TCA_SINGLE_CMP0EN_bp)) == 0){
+			TCA0.SINGLE.CTRLB |= (1 << TCA_SINGLE_CMP0EN_bp);
+		}
+		
 		return 1;
 }
 /**
@@ -347,6 +348,8 @@ static void STEP_Stop(void){
 		//Cancel request
 		STEP_steps_requested = 0;
 		STEP_steps_moved = 0;
+		//disable output
+		TCA0.SINGLE.CTRLB &= ~(1 << TCA_SINGLE_CMP0EN_bp);
 		//Turn off LED
 		LED_Set(LED_GREEN, LED_OFF);
 }
@@ -381,86 +384,11 @@ static uint8_t STEP_MicroStepMode2Multiplier(STEP_MicroModeTypeDef MicroStepMode
   */
 static void STEP_GPIO_Config(void)
 {
-#if 0
-	GPIO_InitTypeDef        GPIO_InitStructure;
-	
-	/* GPIOx Periph clock enable */
-  RCC_AHBPeriphClockCmd(STEP_ENABLE_GPIO_CLK, ENABLE);
-  RCC_AHBPeriphClockCmd(STEP_SLEEP_GPIO_CLK, ENABLE);
-  RCC_AHBPeriphClockCmd(STEP_RESET_GPIO_CLK, ENABLE);
-  RCC_AHBPeriphClockCmd(STEP_PWM_GPIO_CLK, ENABLE);
-  RCC_AHBPeriphClockCmd(STEP_DIR_GPIO_CLK, ENABLE);
-  RCC_AHBPeriphClockCmd(STEP_MS1_GPIO_CLK, ENABLE);
-  RCC_AHBPeriphClockCmd(STEP_MS2_GPIO_CLK, ENABLE);
-  RCC_AHBPeriphClockCmd(STEP_MS3_GPIO_CLK, ENABLE);
-	
-	/* Configure ENABLE PIN as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = STEP_ENABLE_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(STEP_ENABLE_GPIO_PORT, &GPIO_InitStructure);
-	
-	/* Configure SLEEP PIN as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = STEP_SLEEP_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(STEP_SLEEP_GPIO_PORT, &GPIO_InitStructure);
-	
-	/* Configure RESET PIN as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = STEP_RESET_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(STEP_RESET_GPIO_PORT, &GPIO_InitStructure);
-	
-	/* Configure DIR PIN as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = STEP_DIR_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(STEP_DIR_GPIO_PORT, &GPIO_InitStructure);
-		
-  /* GPIOA Configuration: PWM out - STEP_PWM_TIMER CH2 */
-  GPIO_InitStructure.GPIO_Pin = STEP_PWM_PIN ;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(STEP_PWM_GPIO_PORT, &GPIO_InitStructure); 
-	
-	/* Configure MSx as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = STEP_MS1_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(STEP_MS1_GPIO_PORT, &GPIO_InitStructure);
-	
-	/* Configure MSx as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = STEP_MS2_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(STEP_MS2_GPIO_PORT, &GPIO_InitStructure);
-    
-	/* Configure MSx as output pushpull mode */
-  GPIO_InitStructure.GPIO_Pin = STEP_MS3_PIN;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_OUT;
-  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-  GPIO_Init(STEP_MS3_GPIO_PORT, &GPIO_InitStructure);
-	
-  /* Connect TIM Channels to AF2 */
-  GPIO_PinAFConfig(STEP_PWM_GPIO_PORT, STEP_PWM_SOURCE, STEP_PWM_AF);
- #endif
+	pinMode(STEP_ENABLE_PIN, OUTPUT);	
+	pinMode(STEP_DIR_PIN, OUTPUT);
+	pinMode(STEP_PWM_PIN, OUTPUT);
+	digitalWrite(STEP_PWM_PIN, LOW);
+	PORTMUX.TCAROUTEA = STEP_PWM_PORTMUX;
 }
 
 /**
@@ -469,55 +397,26 @@ static void STEP_GPIO_Config(void)
   * @retval None
   */
 static void STEP_PWM_Config(void)
-{
-#if 0
-  NVIC_InitTypeDef NVIC_InitStructure;
-	
-  /* PWM_PWM_TIMER clock enable */
-  RCC_APB1PeriphClockCmd(STEP_PWM_TIMER_CLK, ENABLE);
+{	
+	uint32_t STEP_NewPeriod = STEP_PWM_TIMER_FREQ / STEP_PWM_freq;
+	STEP_PWM_Actual_freq = STEP_PWM_freq;
+
+	TCA0.SINGLE.CTRLB = 0 << TCA_SINGLE_ALUPD_bp         /* Auto Lock Update: disabled */
+	                    | 0 << TCA_SINGLE_CMP0EN_bp      /* Compare 0 Enable: disabled */
+	                    | 0 << TCA_SINGLE_CMP1EN_bp      /* Compare 1 Enable: disabled */
+	                    | 0 << TCA_SINGLE_CMP2EN_bp      /* Compare 2 Enable: disabled */ 
+						| TCA_SINGLE_WGMODE_SINGLESLOPE_gc; /*  */
  
-  TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
-  TIM_OCStructInit(&TIM_OCInitStructure);
+	TCA0.SINGLE.CMP0BUF = (uint16_t)(STEP_NewPeriod / 2); /* Compare Register 1: 0x10 */
+	TCA0.SINGLE.PERBUF = (uint16_t)(STEP_NewPeriod); /* Period*/
 
-  /* ---------------------------------------------------------------------------
-    Note: 
-     SystemCoreClock variable holds HCLK frequency and is defined in system_stm32f0xx.c file.
-     Each time the core clock (HCLK) changes, user had to call SystemCoreClockUpdate()
-     function to update SystemCoreClock variable value. Otherwise, any configuration
-     based on this variable will be incorrect. 
-     
-  --------------------------------------------------------------------------- */
-  	
-  /* Time base configuration */
-  TIM_TimeBaseStructure.TIM_Period = (uint16_t)(STEP_PWM_TIMER_FREQ / STEP_PWM_freq);
-  TIM_TimeBaseStructure.TIM_Prescaler = (uint16_t)((STEP_PWM_CLOCK_BASE / STEP_PWM_TIMER_FREQ) - 1); 
-  TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-	TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
-  TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
+	TCA0.SINGLE.INTCTRL = 1 << TCA_SINGLE_CMP0_bp   /* Compare 0 Interrupt: enabled */
+                     | 0 << TCA_SINGLE_CMP1_bp /* Compare 1 Interrupt: disabled */
+                     | 0 << TCA_SINGLE_CMP2_bp /* Compare 2 Interrupt: disabled */
+                     | 0 << TCA_SINGLE_OVF_bp; /* Overflow Interrupt: disabled */
 
-  TIM_TimeBaseInit(STEP_PWM_TIMER, &TIM_TimeBaseStructure);
-
-  /* Output Compare Active Mode configuration: Channel2 */
-  TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM2;
-  TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;
-  TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
-	TIM_OCInitStructure.TIM_OCIdleState = TIM_OCIdleState_Set;
-  TIM_OCInitStructure.TIM_Pulse = (uint16_t)((STEP_PWM_TIMER_FREQ / STEP_PWM_freq) / 2); //Set Pulse to 50% of period
-  TIM_OC1Init(STEP_PWM_TIMER, &TIM_OCInitStructure);
-		
-  TIM_ARRPreloadConfig(STEP_PWM_TIMER, DISABLE); 
-  TIM_OC1PreloadConfig(STEP_PWM_TIMER, TIM_OCPreload_Disable);
-
-  /* Enable the TIMx global Interrupt */
-  NVIC_InitStructure.NVIC_IRQChannel = STEP_PWM_TIM_IRQ;
-  NVIC_InitStructure.NVIC_IRQChannelPriority = 3;
-  NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-  NVIC_Init(&NVIC_InitStructure);
-	
-	//Set OnePulse Mode On
-	TIM_SelectOnePulseMode(STEP_PWM_TIMER, TIM_OPMode_Single); 
-	
-	//Enable Step completed interrupt
-	TIM_ITConfig(STEP_PWM_TIMER, TIM_IT_Update, ENABLE); 
-#endif
+                    
+	TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc /* System Clock / 2 */
+                      | 1 << TCA_SINGLE_ENABLE_bp /* Module Enable: enabled */;
+					  
 }
