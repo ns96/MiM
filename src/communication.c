@@ -1,9 +1,11 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include "communication.h"
 #include "Drivers/BLDC.h"
 #include "Drivers/A4988.h"
 #include "Drivers/LED.h"
 #include "Drivers/CRC8.h"
+#include "Drivers/XY-KPWM.h"
 #include <string.h>
 
 volatile uint8_t uart_pointer=0;
@@ -225,6 +227,7 @@ void communication_callback(void){
 			else
 			//------------------------- BLDC ON ----------------------------------------		
 			if cmd_is(UART_CMD_BLDCon){
+					XYEnabled = 0;
 					BLDC_powerOn();
 					sprintf(Response, "OK,%d", CMD_OK);
 					comm_print_cmd(Response);
@@ -232,6 +235,7 @@ void communication_callback(void){
 			else
 			//------------------------- BLDC OFF ----------------------------------------	
 			if cmd_is(UART_CMD_BLDCoff){
+					XYEnabled = 1;
 					BLDC_powerOff();
 					comm_print_cmd("OK,0");
 			}			
@@ -402,6 +406,7 @@ void communication_callback(void){
 			else
 			//------------------------- STEP ON ----------------------------------------		
 			if cmd_is(UART_CMD_STEPon){
+					XYEnabled = 0;
 					STEP_enableOn();
 					STEP_sleepOff();
 					comm_print_cmd("OK,0");
@@ -409,6 +414,7 @@ void communication_callback(void){
 			else
 			//------------------------- STEP OFF ----------------------------------------	
 			if cmd_is(UART_CMD_STEPoff){
+					XYEnabled = 1;
 					STEP_enableOff();
 					comm_print_cmd("OK,0");
 			}			

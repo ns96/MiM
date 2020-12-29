@@ -5,9 +5,11 @@
 static volatile unsigned long pwm_count = 0; // used to check if we are receiving a pwm signal from XY-KPWM
 static volatile unsigned long sumPWMDuty = 0; // Sum of PWM value for averaging
 static volatile unsigned long XY_SpeedOld = 0;
-volatile boolean changeXYSpeed = false;
+volatile bool changeXYSpeed = false;
 volatile unsigned long XY_Speed = 0; // rpm speed set by pwm signal
 static volatile bool XY_XPWM_int = false;
+bool XYEnabled = true;
+static volatile bool XY_init_mode = true;
 
 /**
   * @brief  Interrupt for XY_XPW when readed signal duty
@@ -34,9 +36,14 @@ ISR(TCB1_INT_vect) {
     pwm_count = 0;
     // reset the speed sum
     sumPWMDuty = 0;
+	if (XY_Speed > 10000) {
+		XY_Speed = 10000;
+	}
+	
 	if (XY_SpeedOld != XY_Speed) {
 		XY_SpeedOld = XY_Speed;
 		changeXYSpeed = true;
+		XY_init_mode = false;
 	}
   }
 }
@@ -54,11 +61,10 @@ void XY_XPWM_Process(void) {
 	  return;
 	}
     
+	XY_Speed = 0;
 	//PWM signal not detected for XY_XPWM 
-	if (digitalRead(XY_XPWM_PIN)) {
+	if (digitalRead(XY_XPWM_PIN) && !XY_init_mode) {
 		XY_Speed = 10000;
-	} else {
-		XY_Speed = 0;
 	}
 	if (XY_SpeedOld != XY_Speed) {
 		XY_SpeedOld = XY_Speed;
@@ -74,7 +80,7 @@ void XY_XPWM_Process(void) {
 void XY_KPWM_Init(void) {
   //configure pin	
   pinMode(XY_XPWM_PIN, INPUT);
-  EVSYS.CHANNEL1 = XY_XPWM_PIN_EVSYS_PORT; // Route to XY_KPWM pin PA1; 
+  EVSYS.CHANNEL1 = XY_XPWM_PIN_EVSYS_PORT; // Route XY_KPWM pin to EVSYS.CHANNEL1; 
   EVSYS.USERTCB1 = EVSYS_CHANNEL_CHANNEL1_gc;
   
   //configure timer for reading signal duty 

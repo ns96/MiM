@@ -15,7 +15,7 @@ extern volatile uint8_t BLDC_FG_HW_Mode;
 
 void setup() {
   //Chinese boards are hard to program when the USB serial port is busy. delay helps to start programing the board without magic.
-  delay(3000);
+  //delay(3000);
   //Set clocksource of time Timer to clock/2
   //now Arduino time faster in 32 times
   #if defined(MILLIS_USE_TIMERB2) 
@@ -26,6 +26,7 @@ void setup() {
                | 1 << TCB_ENABLE_bp;   /* Enable: enabled */
   #endif
   Serial.begin(19200);
+  Serial1.setTimeout(125);
   Serial1.begin(19200);
   //Serial1.println("start");
   
@@ -76,20 +77,25 @@ void loop() {
   if (counter > 7) {
     counter = 1;
   }
-  //Serial1.println((String)(FGPeriod) + " : " +(String)(FGPeriod2) +" : " +(String)(BLDC_FG_HW_Mode));  
-  if (changeXYSpeed) {
+
+  if (changeXYSpeed && XYEnabled) {
     if (XY_Speed > 0) {
       //enable BLDC
       if (!BLDC_getPower()) {
         BLDC_powerOn();
+        Serial.println("BLDC on");
       }
       //set RPM
       BLDC_setRPM(XY_Speed);
+      Serial.println("BLDC set RPM:" + (String)(XY_Speed));
     } else {
       //XY disabled. turnoff
-      BLDC_powerOff();
+      if (BLDC_getPower()) {
+        BLDC_powerOff();
+        Serial.println("BLDC off");
+      }
     }
-    //board_serial_println("XYPWM:"+(String)(XY_Speed));
+    Serial.println("XYPWM:"+(String)(XY_Speed));
     changeXYSpeed = false;  
   }
   //0.7 sec interval
