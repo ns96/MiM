@@ -55,9 +55,6 @@ typedef enum {
 	uint32_t BLDC_getFGPeriod(void);
 	uint8_t BLDC_SetDirection(BLDC_DirectionTypeDef Dir);
 	BLDC_DirectionTypeDef BLDC_GetDirection(void);
-	void BLDC_FG_Process(void);
-	void BLDC_FG_Interrupt(void);
-	void BLDC_FG_Interrupt_HW_Mode(uint8_t mode);
 #ifdef __cplusplus
 }
 #endif	

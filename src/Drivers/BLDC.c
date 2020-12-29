@@ -9,7 +9,7 @@
 	static volatile bool RPM_Adjust_requested = false, BLDC_Startup_Mode = false, Skip_FG_Pulse = false, BLDC_power = 0;
 	static volatile uint32_t BLDC_RPM_target = 0;
 	volatile uint16_t FGPeriod = 0; //Period of FG signal
-	volatile uint16_t FGPeriod2 = 0; //Period of FG signal
+	volatile uint32_t FGPeriod2 = 0; //Period of FG signal
 	static volatile uint32_t motorHalted_cnt=0;
 	static volatile uint32_t loopCount = 0; //Used to remain in startupMode for 1 second to smooth out starting at low rpms
 	static volatile uint32_t BLDC_Startup_PWM = BLDC_STARTUP_PWM_DEF;		//Default PWM to be set at motor startup
@@ -20,10 +20,7 @@
 	static uint8_t  FGPeriodHistInd = 0, FGPeriodHistCnt = 0; //History of pulse length required for averaging: index in array and registered pulses count
 	static uint16_t FGPeriodHist[BLDC_FG_AVERAGING_COUNT]; //History of pulse length required for averaging
 	#endif
-	static volatile bool BLDC_fg_int = false;
-	static volatile uint32_t timeFGOld = 0;
-	static volatile uint32_t timeFG = 0;
-	volatile uint8_t BLDC_FG_HW_Mode = FG_HW_NOINIT;
+	volatile uint32_t FG_Timer_Timeouts = 0;
 
 //---------------  Internal functions prototypes -------------------
 	static inline uint16_t FG2RPM (uint16_t FGPeriod);
@@ -55,15 +52,6 @@ uint8_t BLDC_init(void){
 *				Exported Functions - interrupts and timers handling							
 ********************************************************* */
 
-void BLDC_FG_Process(void){
-if (BLDC_fg_int) {
-      BLDC_fg_int = false;
-    } else {
-      //PWM signal not detected for BLDC_FG
-      BLDC_FG_PulseMissing();
-    }
-}
-
 /**
  * \brief FG period measuring timer has timed out. FG pulse is missing.
  * 				Must be called in corresponding Timer Update interrupt
@@ -91,13 +79,42 @@ void BLDC_FG_PulseMissing(void){
 	
 }
 
+/**
+ * \brief Interrupt for reading FG frequency
+ * 
+ */
 ISR(TCB0_INT_vect) {
 	FGPeriod2 = FG_TIMER.CCMP; // reading CCMP clears interrupt flag
+	//start FG timeout timer
+	FG_TIMER_OVERFLOWS.CNT = 0;
+
+	if ((FG_TIMER_OVERFLOWS.CTRLA & (1 << TCB_ENABLE_bp)) == 0){
+      FG_TIMER_OVERFLOWS.CTRLA |= (1 << TCB_ENABLE_bp);
+		FG_Timer_Timeouts = 0;
+		return;
+	}
+
+	FGPeriod2 = FGPeriod2 + FG_Timer_Timeouts * 65535;
 	//convert period 8 MHZ timer to period of 100000 HZ timer
 	FGPeriod2 /= 80;
-	if (BLDC_FG_HW_Mode == 1) {
-	  BLDC_FG_PulseDetected(FGPeriod2);
+	FG_Timer_Timeouts = 0;
+	BLDC_FG_PulseDetected(FGPeriod2);
+	
+}
+
+/**
+ * \brief Interrupt for calculating timeouts of FG timer
+ * 
+ */
+ISR(TCB1_INT_vect)
+{
+	FG_Timer_Timeouts++;
+	// 1 sec interval passed without FG timeouts
+	if (FG_Timer_Timeouts >= 122) {
+		FG_Timer_Timeouts = 0;
+		BLDC_FG_PulseMissing();
 	}
+    FG_TIMER_OVERFLOWS.INTFLAGS = TCB_CAPT_bm;
 }
 
 /**
@@ -108,7 +125,6 @@ ISR(TCB0_INT_vect) {
 
 uint8_t BLDC_FG_PulseDetected(uint16_t CapturedValue){
 
-		BLDC_fg_int = true;
 		motorHalted_cnt=0;
 	
 		//Ignore first FG pulse. Fake pulse is generated when motor's power is switched
@@ -166,13 +182,7 @@ uint8_t BLDC_RPM_control(void){
 		
 		//Get actual RPM
 		RPM_Act = BLDC_getRPM();
-		//Set HW mode interrupt for RPM > 4000
-		if (RPM_Act > 4000) {
-			BLDC_FG_Interrupt_HW_Mode(1);	
-		} else {
-			BLDC_FG_Interrupt_HW_Mode(0);	
-		}
-				
+
 		//Do not adjust if RPM speed is not requested or motor is not running
 		if ((BLDC_RPM_target == 0) || (RPM_Act == 0)) return 0; 
 			
@@ -238,7 +248,7 @@ uint8_t BLDC_powerOn(void){
 //	GPIO_SetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
 	BLDC_GPIO_Config();
 	TIM_PWM_Config();
-	BLDC_FG_Interrupt_HW_Mode(0);
+	TIM_FG_Config();
 	BLDC_power = 1;
 	return 1;
 }
@@ -251,8 +261,9 @@ uint8_t BLDC_powerOff(void){
 	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
 	BLDC_setTimerPWM(0);				//Stop PWM generation
 //	GPIO_ResetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
-	BLDC_FG_Interrupt_HW_Mode(0);
 	BLDC_power = 0;
+	// Disable FG overflows timer
+	FG_TIMER_OVERFLOWS.CTRLA &= ~(1 << TCB_ENABLE_bp);
 	return 1;
 }
 
@@ -504,7 +515,10 @@ static void BLDC_GPIO_Config(void){
 	pinMode(BLDC_PWM_PIN, OUTPUT);
 	digitalWrite(BLDC_PWM_PIN, LOW);
 	PORTMUX.TCAROUTEA = BLDC_PWM_PORTMUX;
-	BLDC_FG_Interrupt_HW_Mode(0);
+	
+	//FG PIN
+	EVSYS.CHANNEL0 = BLDC_FG_PIN_EVSYS_PORT;
+	EVSYS.USERTCB0 = EVSYS_CHANNEL_CHANNEL0_gc; // to TCB0
 }
 
 /**
@@ -533,6 +547,29 @@ static void TIM_FG_Config(void)
                | 1 << TCB_ENABLE_bp   /* Enable: enabled */
                | 0 << TCB_RUNSTDBY_bp /* Run Standby: disabled */
                | 0 << TCB_SYNCUPD_bp; /* Synchronize Update: disabled */
+			   
+	//Set up FG overflows Timer - counts overflows of FG_TIMER
+	FG_TIMER_OVERFLOWS.CCMP = 0xffff; /* Compare or Capture: 0xffff */
+	FG_TIMER_OVERFLOWS.CNT = 0x0; /* Count: 0x0 */
+
+	 FG_TIMER_OVERFLOWS.CTRLB = 0 << TCB_ASYNC_bp /* Asynchronous Enable: disabled */
+			 | 0 << TCB_CCMPEN_bp /* Pin Output Enable: disabled */
+			 | 0 << TCB_CCMPINIT_bp /* Pin Initial State: disabled */
+			 | TCB_CNTMODE_INT_gc; /* Periodic Interrupt */
+
+	// TCB0.DBGCTRL = 0 << TCB_DBGRUN_bp; /* Debug Run: disabled */
+
+	// TCB0.EVCTRL = 0 << TCB_CAPTEI_bp /* Event Input Enable: disabled */
+	//		 | 0 << TCB_EDGE_bp /* Event Edge: disabled */
+	//		 | 0 << TCB_FILTER_bp; /* Input Capture Noise Cancellation Filter: disabled */
+
+	FG_TIMER_OVERFLOWS.INTCTRL = 1 << TCB_CAPT_bp /* Capture or Timeout: enabled */;
+
+  FG_TIMER_OVERFLOWS.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
+	             | 0 << TCB_ENABLE_bp   /* Enable: disabled */
+	             | 0 << TCB_RUNSTDBY_bp /* Run Standby: disabled */
+	             | 0 << TCB_SYNCUPD_bp; /* Synchronize Update: disabled */
+				 
 }
 
 /**
@@ -556,48 +593,4 @@ static void TIM_PWM_Config(void)
 	TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc /* System Clock / 2 */
 	                    | 1 << TCA_SINGLE_ENABLE_bp /* Module Enable: enabled */;
   
-}
-
-/**
- * @brief Software interrupt handler for calculating FG pin signal frequency in timer pulses
- * @param None
- * @retval None
- */
-void BLDC_FG_Interrupt(void) {
-	uint32_t cnt;
-	timeFG = micros();
-	if ((timeFGOld == 0) || (timeFGOld > timeFG)) {
-		timeFGOld = timeFG;
-		return;
-	}
-	
-	//FG do not use hardware timer for detecting frequency. so we use time to calculate counter value.
-	//convert time between pulses to timer counter value
-	cnt = (timeFG - timeFGOld)/ 320;
-	timeFGOld = timeFG;
-	BLDC_FG_PulseDetected(cnt);
-	
-	
-}
-
-/**
- * @brief Set interrupt mode for FG pin
- * @param None
- * @retval None
- */
-void BLDC_FG_Interrupt_HW_Mode(uint8_t mode) {
-	if (BLDC_FG_HW_Mode == mode) {
-		return;
-	}
-	BLDC_FG_HW_Mode = mode;
-	if (mode) {
-		detachInterrupt(BLDC_FG_PIN);
-		//pinMode(BLDC_FG_PIN, INPUT_PULLUP);
-		//set route from FG pin to timer
-		EVSYS.CHANNEL0 = BLDC_FG_PIN_EVSYS_PORT;
-		EVSYS.USERTCB0 = EVSYS_CHANNEL_CHANNEL0_gc; // to TCB0
-	} else {
-		attachInterrupt(BLDC_FG_PIN, BLDC_FG_Interrupt, RISING);
-	}
-	
 }

@@ -9,9 +9,6 @@
 
 unsigned long currentTime = 0, loopTime = 0;
 int counter = 0; 
-extern volatile uint16_t FGPeriod;
-extern volatile uint16_t FGPeriod2;
-extern volatile uint8_t BLDC_FG_HW_Mode;
 
 void setup() {
   //Chinese boards are hard to program when the USB serial port is busy. delay helps to start programing the board without magic.
@@ -41,12 +38,12 @@ void setup() {
 }
 
 extern "C" void board_serial_print(char *line){
-//  Serial.print(line);
+  Serial.print(line);
   Serial1.print(line);    
 }
 
 void board_serial_println(String line){
- // Serial.println(line);
+  Serial.println(line);
   Serial1.println(line);    
 }
 
@@ -72,7 +69,7 @@ void loop() {
   }
   
   loopTime = currentTime;
-  //create 1 sec events
+  //create 0.7 sec events
   counter++;
   if (counter > 7) {
     counter = 1;
@@ -101,7 +98,6 @@ void loop() {
   //0.7 sec interval
   if (counter == 7) {
     XY_XPWM_Process();
-    BLDC_FG_Process();
   }
   
   //Adjust BLDC motor speed

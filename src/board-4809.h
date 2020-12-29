@@ -15,6 +15,7 @@
 #define BLDC_FG_PIN_EVSYS_PORT EVSYS_GENERATOR_PORT0_PIN0_gc; // Route to FG pin PA0
 #define FG_TIMER TCB0
 #define BLDC_PWM_PORTMUX		PORTMUX_TCA0_PORTB_gc	//route PWM ouput to PB0 (D9)
+#define FG_TIMER_OVERFLOWS TCB1
 
 /*****************************************************************
  * @brief Definition for STEP motor pins and timers
@@ -43,5 +44,5 @@
 
 #define XY_XPWM_PIN   			3 //D3 reads XY-KPWM pwm signal
 #define XY_XPWM_PIN_EVSYS_PORT	EVSYS_GENERATOR_PORT1_PIN5_gc // Route to XY-KPWM pin PF5 (D3) 
-#define XY_KPWM_TIMER			TCB1
+#define XY_KPWM_TIMER			TCB2
 #endif

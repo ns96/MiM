@@ -17,7 +17,7 @@ static volatile bool XY_init_mode = true;
   * @retval None
   */
 
-ISR(TCB1_INT_vect) {
+ISR(TCB2_INT_vect) {
   unsigned long duty = XY_KPWM_TIMER.CCMP; // reading CCMP clears interrupt flag
   XY_XPWM_int = true;
 
@@ -81,7 +81,7 @@ void XY_KPWM_Init(void) {
   //configure pin	
   pinMode(XY_XPWM_PIN, INPUT);
   EVSYS.CHANNEL1 = XY_XPWM_PIN_EVSYS_PORT; // Route XY_KPWM pin to EVSYS.CHANNEL1; 
-  EVSYS.USERTCB1 = EVSYS_CHANNEL_CHANNEL1_gc;
+  EVSYS.USERTCB2 = EVSYS_CHANNEL_CHANNEL1_gc;
   
   //configure timer for reading signal duty 
   XY_KPWM_TIMER.CTRLA = 0; // Turn off channel for configuring
