@@ -34,7 +34,6 @@ void setup() {
   XY_KPWM_Init();
   // Turn on power LED
   LED_Set(LED_RED, LED_ON);
-
 }
 
 extern "C" void board_serial_print(char *line){
@@ -64,7 +63,7 @@ void loop() {
   currentTime = millis();
   serial_read();
   
-  if(currentTime < (loopTime + 100 * 32)) {
+  if (currentTime < (loopTime + 100 * 32)) {
     return;
   }
   
@@ -92,7 +91,7 @@ void loop() {
         Serial.println("BLDC off");
       }
     }
-    Serial.println("XYPWM:"+(String)(XY_Speed));
+    Serial.println("XYPWM:" + (String)(XY_Speed));
     changeXYSpeed = false;  
   }
   //0.7 sec interval

@@ -8,15 +8,14 @@ static volatile unsigned long XY_SpeedOld = 0;
 volatile bool changeXYSpeed = false;
 volatile unsigned long XY_Speed = 0; // rpm speed set by pwm signal
 static volatile bool XY_XPWM_int = false;
-bool XYEnabled = true;
+bool XYEnabled = false;
 static volatile bool XY_init_mode = true;
 
 /**
-  * @brief  Interrupt for XY_XPW when readed signal duty
+  * @brief  Interrupt for XY_XPW when read signal duty
   * @param  None
   * @retval None
   */
-
 ISR(TCB2_INT_vect) {
   unsigned long duty = XY_KPWM_TIMER.CCMP; // reading CCMP clears interrupt flag
   XY_XPWM_int = true;
@@ -25,7 +24,7 @@ ISR(TCB2_INT_vect) {
   pwm_count++;
 
   // average the speed
-  if(pwm_count == 5) { 
+  if (pwm_count == 5) {
     unsigned long speed10 = sumPWMDuty / 5; // average n readings
 	//convert pwm duty to RPM
 	//convert timer cnt to microsecond period
@@ -49,12 +48,11 @@ ISR(TCB2_INT_vect) {
 }
 
 /**
-  * @brief  Check that interrupt was readed for time interval
+  * @brief  Check that interrupt was read for time interval
   *				 must be called every 1 s
   * @param  None
   * @retval None
   */
-  
 void XY_XPWM_Process(void) {
 	if (XY_XPWM_int) {
       XY_XPWM_int = false;
