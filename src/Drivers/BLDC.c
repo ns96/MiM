@@ -88,12 +88,6 @@ ISR(TCB0_INT_vect) {
 	//start FG timeout timer
 	FG_TIMER_OVERFLOWS.CNT = 0;
 
-	if ((FG_TIMER_OVERFLOWS.CTRLA & (1 << TCB_ENABLE_bp)) == 0){
-      FG_TIMER_OVERFLOWS.CTRLA |= (1 << TCB_ENABLE_bp);
-		FG_Timer_Timeouts = 0;
-		return;
-	}
-
 	FGPeriod2 = FGPeriod2 + FG_Timer_Timeouts * 65535;
 	//convert period 8 MHZ timer to period of 100000 HZ timer
 	FGPeriod2 /= 80;
@@ -259,11 +253,12 @@ uint8_t BLDC_powerOn(void){
 uint8_t BLDC_powerOff(void){
 	BLDC_RPM_target = 0;  //Request RPM = 0
 	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
-	BLDC_setTimerPWM(0);				//Stop PWM generation
+	
 //	GPIO_ResetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
 	BLDC_power = 0;
+	BLDC_setTimerPWM(0);				//Stop PWM generation
 	// Disable FG overflows timer
-	FG_TIMER_OVERFLOWS.CTRLA &= ~(1 << TCB_ENABLE_bp);
+	//FG_TIMER_OVERFLOWS.CTRLA &= ~(1 << TCB_ENABLE_bp);
 	return 1;
 }
 
@@ -566,7 +561,7 @@ static void TIM_FG_Config(void)
 	FG_TIMER_OVERFLOWS.INTCTRL = 1 << TCB_CAPT_bp /* Capture or Timeout: enabled */;
 
   FG_TIMER_OVERFLOWS.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
-	             | 0 << TCB_ENABLE_bp   /* Enable: disabled */
+	             | 1 << TCB_ENABLE_bp   /* Enable: disabled */
 	             | 0 << TCB_RUNSTDBY_bp /* Run Standby: disabled */
 	             | 0 << TCB_SYNCUPD_bp; /* Synchronize Update: disabled */
 				 
