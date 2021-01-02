@@ -13,8 +13,8 @@
 #define STEP_LIMIT_OFF			1
 
 uint8_t LimitSW_Init(void){
-  pinMode(S01_PIN, INPUT);
-  pinMode(S02_PIN, INPUT);
+    pinMode(S01_PIN, INPUT_PULLUP);
+    pinMode(S02_PIN, INPUT_PULLUP);
 	
 	return 1;
 }
