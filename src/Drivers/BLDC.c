@@ -524,21 +524,21 @@ static void BLDC_GPIO_Config(void){
 static void TIM_FG_Config(void)
 {
   
-  FG_TIMER.CTRLA = 0; // Turn off channel for configuring
-  FG_TIMER.CTRLB = 0 << TCB_ASYNC_bp      /* Asynchronous Enable: disabled */
-               | 0 << TCB_CCMPEN_bp   /* Pin Output Enable: disabled */
-               | 0 << TCB_CCMPINIT_bp /* Pin Initial State: disabled */
-               | TCB_CNTMODE_FRQ_gc;  /* Input Capture Frequency measurement */
+    FG_TIMER.CTRLA = 0; // Turn off channel for configuring
+    FG_TIMER.CTRLB = 0 << TCB_ASYNC_bp      /* Asynchronous Enable: disabled */
+                 | 0 << TCB_CCMPEN_bp   /* Pin Output Enable: disabled */
+                 | 0 << TCB_CCMPINIT_bp /* Pin Initial State: disabled */
+                 | TCB_CNTMODE_FRQ_gc;  /* Input Capture Frequency measurement */
 
-  // TCB0.DBGCTRL = 0 << TCB_DBGRUN_bp; /* Debug Run: disabled */
+    // TCB0.DBGCTRL = 0 << TCB_DBGRUN_bp; /* Debug Run: disabled */
 
-  FG_TIMER.EVCTRL = 1 << TCB_CAPTEI_bp    /* Event Input Enable: enabled */
-                | 0 << TCB_EDGE_bp    /* Event Edge: disabled */
-                | 1 << TCB_FILTER_bp; /* Input Capture Noise Cancellation Filter: enabled */
+    FG_TIMER.EVCTRL = 1 << TCB_CAPTEI_bp    /* Event Input Enable: enabled */
+                  | 0 << TCB_EDGE_bp    /* Event Edge: disabled */
+                  | 1 << TCB_FILTER_bp; /* Input Capture Noise Cancellation Filter: enabled */
 
-  FG_TIMER.INTCTRL = 1 << TCB_CAPT_bp /* Capture or Timeout: enabled */;
+    FG_TIMER.INTCTRL = 1 << TCB_CAPT_bp /* Capture or Timeout: enabled */;
 
-  FG_TIMER.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
+    FG_TIMER.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
                | 1 << TCB_ENABLE_bp   /* Enable: enabled */
                | 0 << TCB_RUNSTDBY_bp /* Run Standby: disabled */
                | 0 << TCB_SYNCUPD_bp; /* Synchronize Update: disabled */
@@ -560,7 +560,7 @@ static void TIM_FG_Config(void)
 
 	FG_TIMER_OVERFLOWS.INTCTRL = 1 << TCB_CAPT_bp /* Capture or Timeout: enabled */;
 
-  FG_TIMER_OVERFLOWS.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
+    FG_TIMER_OVERFLOWS.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
 	             | 1 << TCB_ENABLE_bp   /* Enable: disabled */
 	             | 0 << TCB_RUNSTDBY_bp /* Run Standby: disabled */
 	             | 0 << TCB_SYNCUPD_bp; /* Synchronize Update: disabled */
@@ -575,8 +575,11 @@ static void TIM_FG_Config(void)
 static void TIM_PWM_Config(void)
 {
 	uint16_t CCR_Val = 10;
-	
-	TCA0.SINGLE.CTRLB = 0 << TCA_SINGLE_ALUPD_bp         /* Auto Lock Update: disabled */
+
+    TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc /* System Clock / 2 */
+      | 0 << TCA_SINGLE_ENABLE_bp /* Module Enable: disabled */;
+
+    TCA0.SINGLE.CTRLB = 0 << TCA_SINGLE_ALUPD_bp         /* Auto Lock Update: disabled */
 	                    | 0 << TCA_SINGLE_CMP0EN_bp      /* Compare 0 Enable: disabled */
 	                    | 0 << TCA_SINGLE_CMP1EN_bp      /* Compare 1 Enable: enabled */
 	                    | 0 << TCA_SINGLE_CMP2EN_bp      /* Compare 2 Enable: disabled */
@@ -585,7 +588,11 @@ static void TIM_PWM_Config(void)
 	TCA0.SINGLE.CMP0BUF = (1000 - CCR_Val); /* Compare Register 0: 0x10 */
 	TCA0.SINGLE.PER = (uint16_t)(BLDC_PWM_TIMER_FREQ / BLDC_PWM_FREQ); /* Period: 0x3e8 */
 
-	TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc /* System Clock / 2 */
+    TCA0.SINGLE.INTCTRL = 0 << TCA_SINGLE_CMP0_bp   /* Compare 0 Interrupt: disabled */
+        | 0 << TCA_SINGLE_CMP1_bp /* Compare 1 Interrupt: disabled */
+        | 0 << TCA_SINGLE_CMP2_bp /* Compare 2 Interrupt: disabled */
+        | 0 << TCA_SINGLE_OVF_bp; /* Overflow Interrupt: disabled */
+
+    TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc /* System Clock / 2 */
 	                    | 1 << TCA_SINGLE_ENABLE_bp /* Module Enable: enabled */;
-  
 }

@@ -400,6 +400,9 @@ static void STEP_PWM_Config(void)
 	uint32_t STEP_NewPeriod = STEP_PWM_TIMER_FREQ / STEP_PWM_freq;
 	STEP_PWM_Actual_freq = STEP_PWM_freq;
 
+	TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc /* System Clock / 2 */
+			| 0 << TCA_SINGLE_ENABLE_bp /* Module Enable: disabled */;
+
 	TCA0.SINGLE.CTRLB = 0 << TCA_SINGLE_ALUPD_bp         /* Auto Lock Update: disabled */
 	                    | 0 << TCA_SINGLE_CMP0EN_bp      /* Compare 0 Enable: disabled */
 	                    | 0 << TCA_SINGLE_CMP1EN_bp      /* Compare 1 Enable: disabled */
