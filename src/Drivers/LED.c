@@ -14,6 +14,7 @@ uint8_t LED_Init(void){
   pinMode(LED_RED_PIN, OUTPUT);
   pinMode(LED_BLUE_PIN, OUTPUT);
   pinMode(LED_GREEN_PIN, OUTPUT);
+  return 1;
 }
 
 
@@ -82,7 +83,6 @@ uint8_t	LED_Set(LED_LedColor LED, LED_State level){
   * @retval none
   */
 uint8_t	LED_Blinker(void){
-	LED_LedColor LED;
 	for (int i = 0; i < LED_NUMBER_OF_LEDS; i++){
 		//Infinite blinking
 		if (BlinkRequest & (1 << i))

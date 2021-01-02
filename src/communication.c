@@ -9,6 +9,8 @@
 #include "Drivers/XY-KPWM.h"
 #include <string.h>
 
+void board_serial_print(char *line);
+
 volatile uint8_t uart_pointer=0;
 volatile uint8_t UART_cmdReceived=0;
 volatile uint8_t UART_cmd_buff[CMD_BUFF_SIZE];
@@ -134,7 +136,7 @@ void communication_callback(void){
 			else
 			//------------------------- Get RPM ----------------------------------------
 			if cmd_is(UART_CMD_BLDCGetRPM){
-					sprintf(Response, "OK,%d",BLDC_getRPM());
+					sprintf(Response, "OK,%ld",BLDC_getRPM());
 					comm_print_cmd(Response);
 			}
 			else
@@ -160,7 +162,7 @@ void communication_callback(void){
 			else
 			//------------------------- Get PWM ----------------------------------------
 			if cmd_is(UART_CMD_BLDCGetPWM){
-					sprintf(Response, "OK,%d",BLDC_getPWM());
+					sprintf(Response, "OK,%ld",BLDC_getPWM());
 					comm_print_cmd(Response);
 			}
 			else
@@ -182,7 +184,7 @@ void communication_callback(void){
 			else
 			//------------------------- Get StartupPWM ----------------------------------------
 			if cmd_is(UART_CMD_BLDCGetStartPWM){
-					sprintf(Response, "OK,%d",BLDC_getStartupPWM());
+					sprintf(Response, "OK,%ld",BLDC_getStartupPWM());
 					comm_print_cmd(Response);
 			}
 			else
@@ -202,7 +204,7 @@ void communication_callback(void){
 			else
 			//------------------------- Get Slope ----------------------------------------
 			if cmd_is(UART_CMD_BLDCGetSlope){
-					sprintf(Response, "OK,%d",BLDC_getSlope());
+					sprintf(Response, "OK,%ld",BLDC_getSlope());
 					comm_print_cmd(Response);
 			}
 			else
@@ -222,7 +224,7 @@ void communication_callback(void){
 			else
 			//------------------------- Get Intercept ----------------------------------------
 			if cmd_is(UART_CMD_BLDCGetIntercept){
-					sprintf(Response, "OK,%d",BLDC_getIntercept());
+					sprintf(Response, "OK,%ld",BLDC_getIntercept());
 					comm_print_cmd(Response);
 			}
 			else
@@ -294,7 +296,7 @@ void communication_callback(void){
 			else
 			//------------------------- Get freq ----------------------------------------
 			if cmd_is(UART_CMD_STEPGetFreq){
-					sprintf(Response, "OK,%d",STEP_getFreq());
+					sprintf(Response, "OK,%ld",STEP_getFreq());
 					comm_print_cmd(Response);
 			}
 			else
@@ -314,7 +316,7 @@ void communication_callback(void){
 			else
 			//------------------------- Get Steps per Dist ----------------------------------------
 			if cmd_is(UART_CMD_STEPGetStepsPDist){
-					sprintf(Response, "OK,%d",STEP_getStepPDist());
+					sprintf(Response, "OK,%ld",STEP_getStepPDist());
 					comm_print_cmd(Response);
 			}
 			else
@@ -400,7 +402,7 @@ void communication_callback(void){
 				STEP_DirectionTypeDef Direction;
 				uint32_t Steps_moved, Steps_requested;
 				STEP_getStatus(&Direction, &Steps_moved, &Steps_requested);
-				sprintf(Response, "OK,%d,%d,%d", (uint8_t)Direction, Steps_moved, Steps_requested);
+				sprintf(Response, "OK,%d,%ld,%ld", (uint8_t)Direction, Steps_moved, Steps_requested);
 				comm_print_cmd(Response);
 			}
 			

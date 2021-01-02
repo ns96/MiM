@@ -9,7 +9,6 @@ static volatile uint32_t	STEP_steps_requested = 0, STEP_steps_moved = 0;	//Steps
 static volatile uint32_t	STEP_PWM_freq = STEP_DEF_FREQ, STEP_PWM_Actual_freq = 0;	//Motor PWM frequency
 static volatile uint32_t	STEP_StepPDist = STEP_DEF_STEPS_PER_DIST;	//Steps per Distes value
 static volatile STEP_MicroModeTypeDef	STEP_MicroStepMode = STEP_FULL;
-static volatile STEP_NewPeriod = 0;
 
 static volatile uint8_t STEP_reset = 0, STEP_sleep = 0;
 
