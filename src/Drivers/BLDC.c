@@ -337,7 +337,7 @@ uint32_t BLDC_getPWM(){
 	uint32_t Pulse, Period;
 	
 	Period = BLDC_PWM_TIMER_FREQ / BLDC_PWM_FREQ;
-	Pulse = TCA0.SINGLE.CMP0;
+	Pulse = (1000 - TCA0.SINGLE.CMP0);
 	Duty = (uint32_t)((Pulse * 1000) / Period);
 	return Duty;
 }
