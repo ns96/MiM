@@ -508,7 +508,7 @@ static void BLDC_GPIO_Config(void){
 	pinMode(BLDC_FG_PIN, INPUT_PULLUP);
 	pinMode(BLDC_DIR_PIN, OUTPUT);	
 	pinMode(BLDC_PWM_PIN, OUTPUT);
-	digitalWrite(BLDC_PWM_PIN, LOW);
+	digitalWrite(BLDC_PWM_PIN, HIGH);
 	PORTMUX.TCAROUTEA = BLDC_PWM_PORTMUX;
 	
 	//FG PIN
