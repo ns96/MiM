@@ -15,7 +15,8 @@ volatile uint8_t uart_pointer=0;
 volatile uint8_t UART_cmdReceived=0;
 volatile uint8_t UART_cmd_buff[CMD_BUFF_SIZE];
 #define cmd_is(x) (memcmp((void*)UART_cmd_buff,x,sizeof(x)-1)==0)
-
+#define UID_BASE         ((uint16_t)0x1103)       /*!< Unique device ID register base address */
+#define UID_DATA( x )    (*((uint8_t *) (UID_BASE + x)))
 
 
 //---------------  Internal functions prototypes -------------------
@@ -102,8 +103,8 @@ void communication_callback(void){
 				char CRC_str[3] = {1,1,0};
 				//Send Device ID as response
 				sprintf(Response, "OK,");
-				for (c = 0; c < 12; c++){
-					//sprintf(CRC_str, "%02X", (uint8_t) boot_signature_byte_get(0x3 + c));
+				for (c = 0; c < 10; c++){
+					sprintf(CRC_str, "%02X", (int) (UID_DATA(c)));
 					strncat(Response, CRC_str, 2);
 				}
 				comm_print_cmd(Response);
