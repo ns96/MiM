@@ -2,8 +2,6 @@
 #ifndef __BOARD_H
 #define __BOARD_H
 
-#define Bit_SET 1
-
 /*****************************************************************
  * @brief Definition for BLDC motor pins and timers
  *****************************************************************/ 

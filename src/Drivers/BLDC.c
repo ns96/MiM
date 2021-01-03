@@ -366,7 +366,7 @@ uint8_t BLDC_SetDirection(BLDC_DirectionTypeDef Dir){
  * \retval Direction in BLDC_DirectionTypeDef type
  */
 BLDC_DirectionTypeDef BLDC_GetDirection(void){
-	if (digitalRead(BLDC_DIR_PIN) == Bit_SET) 
+	if (digitalRead(BLDC_DIR_PIN) == HIGH)
 		return BLDC_COUNTER_CLOCKWISE;
 	else
 		return BLDC_CLOCKWISE;

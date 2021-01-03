@@ -179,7 +179,7 @@ uint8_t STEP_enableOff(void){
  * \brief Get status of STEP motor enable
  */
 STEP_OnOffTypeDef STEP_getEnable(void){
-	if (digitalRead(STEP_ENABLE_PIN) == Bit_SET) 
+	if (digitalRead(STEP_ENABLE_PIN) == HIGH)
 		return STEP_OFF;
 	else return STEP_ON;
 }
@@ -305,7 +305,7 @@ uint8_t STEP_SetDirection(STEP_DirectionTypeDef Dir)
  * \retval Direction in STEP_DirectionTypeDef type
  */
 STEP_DirectionTypeDef STEP_GetDirection(void){
-	if (digitalRead(STEP_DIR_PIN) == Bit_SET) 
+	if (digitalRead(STEP_DIR_PIN) == HIGH)
 		return STEP_CLOCKWISE;
 	else
 		return STEP_COUNTER_CLOCKWISE;
