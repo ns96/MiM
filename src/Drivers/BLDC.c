@@ -61,7 +61,7 @@ void BLDC_FG_PulseMissing(void){
 	//Stop blinking LED
 	LED_Set(LED_GREEN, LED_OFF);
 	//Is the motor supposed to be running?
-	if ((TCA0.SINGLE.CTRLB & (1 << TCA_SINGLE_CMP0EN_bp)) > 0){
+	if (TCA0.SINGLE.CMP0 < 1000){
 		//Increment motor halted timer. 
 		//No signs of motor spinning for ~10seconds?
 		if (++motorHalted_cnt>10){
