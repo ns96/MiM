@@ -547,10 +547,10 @@ static void TIM_FG_Config(void)
 	FG_TIMER_OVERFLOWS.CCMP = 0xffff; /* Compare or Capture: 0xffff */
 	FG_TIMER_OVERFLOWS.CNT = 0x0; /* Count: 0x0 */
 
-	 FG_TIMER_OVERFLOWS.CTRLB = 0 << TCB_ASYNC_bp /* Asynchronous Enable: disabled */
-			 | 0 << TCB_CCMPEN_bp /* Pin Output Enable: disabled */
-			 | 0 << TCB_CCMPINIT_bp /* Pin Initial State: disabled */
-			 | TCB_CNTMODE_INT_gc; /* Periodic Interrupt */
+    FG_TIMER_OVERFLOWS.CTRLB = 0 << TCB_ASYNC_bp /* Asynchronous Enable: disabled */
+           | 0 << TCB_CCMPEN_bp /* Pin Output Enable: disabled */
+           | 0 << TCB_CCMPINIT_bp /* Pin Initial State: disabled */
+           | TCB_CNTMODE_INT_gc; /* Periodic Interrupt */
 
 	// TCB0.DBGCTRL = 0 << TCB_DBGRUN_bp; /* Debug Run: disabled */
 

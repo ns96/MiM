@@ -41,7 +41,9 @@
  * @brief Definition for XY-PWM pin
  *****************************************************************/ 
 
-#define XY_XPWM_PIN   			3 //D3 reads XY-KPWM pwm signal
-#define XY_XPWM_PIN_EVSYS_PORT	EVSYS_GENERATOR_PORT0_PIN1_gc // Route to XY-KPWM pin PA1 (3)
+#define XY_XPWM_PIN   			        3 //D3 reads XY-KPWM pwm signal
+#define XY_XPWM_PIN_EVSYS_CHANNEL	    CHANNEL1
+#define XY_XPWM_PIN_EVSYS_GENERATOR	    EVSYS_GENERATOR_PORT0_PIN1_gc // Route to XY-KPWM pin PA1 (3)
+#define XY_XPWM_PIN_EVSYS_USER_CHANNEL	EVSYS_CHANNEL_CHANNEL1_gc // Route to XY-KPWM pin PA1 (3)
 #define XY_KPWM_TIMER			TCB2
 #endif

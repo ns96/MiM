@@ -10,8 +10,8 @@
 #include "src/Drivers/LimitSW.h"
 #include "src/Drivers/XY-KPWM.h"
 
-static unsigned long currentTime = 0, loopTime = 0;
-static int counter = 0;
+// Arduino time (eg millis()) runs faster
+#define MILLIS_FACTOR   (32)
 
 /**
  * Blink LED_BUILTIN every second
@@ -20,7 +20,7 @@ static void blink_builtin_led() {
   static unsigned long time = millis();
   static int blink_count = 0;
 
-  if (millis() - time >= 1000 * 32) {
+  if (millis() - time >= 1000 * MILLIS_FACTOR) {
     digitalWrite(LED_BUILTIN, blink_count & 0x1 ? HIGH : LOW);
 
     time = millis();
@@ -32,7 +32,7 @@ void setup() {
   //Chinese boards are hard to program when the USB serial port is busy. delay helps to start programing the board without magic.
   //delay(3000);
   //Set clocksource of time Timer to clock/2
-  //now Arduino time faster in 32 times
+  //now Arduino time faster in 32 times (MILLIS_FACTOR)
   #if defined(MILLIS_USE_TIMERB2) 
   TCB2.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
                | 1 << TCB_ENABLE_bp;   /* Enable: enabled */
@@ -66,7 +66,7 @@ void board_serial_println(String line){
   Serial1.println(line);    
 }
 
-void serial_read(void){
+static void serial_read() {
   // Parse and execute commands received over UART
   while (Serial.available()) {
     comm_receivedByte(Serial.read());
@@ -79,13 +79,16 @@ void serial_read(void){
 }
 
 void loop() {
+  static unsigned long currentTime = 0, loopTime = 0;
+  static int counter = 0;
 
   currentTime = millis();
   serial_read();
 
   blink_builtin_led();
 
-  if (currentTime < (loopTime + 100 * 32)) {
+  // 100ms interval
+  if (currentTime < (loopTime + 100 * MILLIS_FACTOR)) {
     return;
   }
   
