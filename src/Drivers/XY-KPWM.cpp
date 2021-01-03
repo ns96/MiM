@@ -4,12 +4,11 @@
 
 static volatile unsigned long pwm_count = 0; // used to check if we are receiving a pwm signal from XY-KPWM
 static volatile unsigned long sumPWMDuty = 0; // Sum of PWM value for averaging
-static volatile unsigned long XY_SpeedOld = 0;
+static volatile unsigned long XY_SpeedOld = 10000;
+volatile unsigned long XY_Speed = 10000; // rpm speed (duty * 10) set by pwm signal
 volatile bool changeXYSpeed = false;
-volatile unsigned long XY_Speed = 0; // rpm speed set by pwm signal
 static volatile bool XY_XPWM_int = false;
 bool XYEnabled = true;
-static volatile bool XY_init_mode = true;
 
 /**
   * @brief  Interrupt for XY_XPW when read signal duty
@@ -29,20 +28,19 @@ ISR(TCB2_INT_vect) {
 	//convert pwm duty to RPM
 	//convert timer cnt to microsecond period
 	speed10 = (125 * speed10) / 1000;
-	speed10 = (speed10 + 5)/10;
+	speed10 = (speed10 + 5) / 10;
 	speed10 = 100 * speed10;
     XY_Speed = speed10;
     pwm_count = 0;
     // reset the speed sum
     sumPWMDuty = 0;
 	if (XY_Speed > 10000) {
-		XY_Speed = 10000;
+      XY_Speed = 10000;
 	}
 	
 	if (XY_SpeedOld != XY_Speed) {
-		XY_SpeedOld = XY_Speed;
-		changeXYSpeed = true;
-		XY_init_mode = false;
+      XY_SpeedOld = XY_Speed;
+      changeXYSpeed = true;
 	}
   }
 }
@@ -59,14 +57,18 @@ void XY_XPWM_Process() {
     return;
   }
 
-  XY_Speed = 0;
-  //PWM signal not detected for XY_XPWM
-  if (digitalRead(XY_XPWM_PIN) && !XY_init_mode) {
-      XY_Speed = 10000;
+  // there was no signal on XY_PWN pin for 1 second
+  // duty = 0% or 100%
+  if (digitalRead(XY_XPWM_PIN) == LOW) {
+    XY_Speed = 0;
+  } else {
+    // duty == 100% or PWM generator is not connected
+    XY_Speed = 10000;
   }
+
   if (XY_SpeedOld != XY_Speed) {
-      XY_SpeedOld = XY_Speed;
-      changeXYSpeed = true;
+    XY_SpeedOld = XY_Speed;
+    changeXYSpeed = true;
   }
 }
 
@@ -76,8 +78,8 @@ void XY_XPWM_Process() {
   * @retval None
   */
 void XY_KPWM_Init() {
-  //configure pin
-  pinMode(XY_XPWM_PIN, INPUT);
+  //configure pin to use PULLUP (so we assume duty is 100% if PWM generator is not connected)
+  pinMode(XY_XPWM_PIN, INPUT_PULLUP);
 
   EVSYS.XY_XPWM_PIN_EVSYS_CHANNEL = XY_XPWM_PIN_EVSYS_GENERATOR; // Route XY_KPWM pin to channel;
   EVSYS.USERTCB2 = XY_XPWM_PIN_EVSYS_USER_CHANNEL;

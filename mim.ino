@@ -100,6 +100,7 @@ void loop() {
   }
 
   if (changeXYSpeed && XYEnabled) {
+    Serial.println("XYPWM:" + (String)(XY_Speed));
     if (XY_Speed > 0) {
       //enable BLDC
       if (!BLDC_getPower()) {
@@ -116,8 +117,7 @@ void loop() {
         Serial.println("BLDC off");
       }
     }
-    Serial.println("XYPWM:" + (String)(XY_Speed));
-    changeXYSpeed = false;  
+    changeXYSpeed = false;
   }
   //0.7 sec interval
   if (counter == 7) {
