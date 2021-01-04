@@ -34,7 +34,6 @@ uint8_t A4988_Init(void)
 	STEP_GPIO_Config();
 	STEP_enableOff();
 	STEP_SetDirection(STEP_CLOCKWISE);
-	STEP_sleepOff();
 	STEP_resetOff();
 	STEP_PWM_Config();
 	
@@ -47,14 +46,16 @@ uint8_t A4988_Init(void)
 ********************************************************* */
 
 /**
- * \brief One STEP pulse comleted, make one more step if required
+ * \brief One STEP pulse completed, make one more step if required
  * 				Must be called in corresponding Period Elapsed interrupt
  */
 //void STEP_PWM_Completed(void){
 ISR(TCA0_CMP0_vect) {
 
-	//If limit swithes are not pressed and more steps are requested
-	if ((CheckLimitSwitches() == LIMIT_SWITCH_OK) && (STEP_steps_requested - STEP_steps_moved - 1)){			
+    STEP_steps_moved++;
+
+	//If limit switches are not pressed and more steps are requested
+	if ((CheckLimitSwitches() == LIMIT_SWITCH_OK) && (STEP_steps_requested - STEP_steps_moved)){
 			//Turn on LED
 			LED_Set(LED_GREEN, LED_BLINK);
 			/* Different PWM frequency was requested
@@ -63,8 +64,6 @@ ISR(TCA0_CMP0_vect) {
 			if (STEP_PWM_Actual_freq != STEP_PWM_freq){
 				STEP_Set_Timer_PWM(STEP_PWM_freq);
 			}
-			STEP_steps_moved++;
-			
 	} else {
 		STEP_Stop();
 	}
@@ -188,30 +187,21 @@ STEP_OnOffTypeDef STEP_getEnable(void){
  * \brief Turns on sleep PIN for STEP motor
  */
 uint8_t STEP_sleepOn(void){
-	STEP_Stop();
-	STEP_sleep = 0;
-//	GPIO_ResetBits(STEP_SLEEP_GPIO_PORT,STEP_SLEEP_PIN);
-	return 1;
+	return STEP_enableOff();
 }
 
 /**
  * \brief Turns off sleep PIN for STEP motor
  */
 uint8_t STEP_sleepOff(void){
-	STEP_Stop(); //clear previously requested steps if there are any
-	STEP_sleep = 1;
-//	GPIO_SetBits(STEP_SLEEP_GPIO_PORT,STEP_SLEEP_PIN);
-	return 1;
+	return STEP_enableOn();
 }
 
 /**
  * \brief Get status of STEP motor sleep
  */
 STEP_OnOffTypeDef STEP_getSleep(void){
-	if (STEP_sleep) 
-		return STEP_OFF;
-	else 
-		return STEP_ON;
+	return !STEP_getEnable();
 }
 
 /**
@@ -220,7 +210,6 @@ STEP_OnOffTypeDef STEP_getSleep(void){
 uint8_t STEP_resetOn(void){
 	STEP_Stop();
 	STEP_reset = 0;
-//	GPIO_ResetBits(STEP_RESET_GPIO_PORT,STEP_RESET_PIN);
 	return 1;
 }
 
@@ -230,7 +219,6 @@ uint8_t STEP_resetOn(void){
 uint8_t STEP_resetOff(void){
 	STEP_Stop(); //clear previously requested steps if there are any
 	STEP_reset = 1;
-//	GPIO_SetBits(STEP_RESET_GPIO_PORT,STEP_RESET_PIN);
 	return 1;
 }
 
@@ -407,7 +395,7 @@ static void STEP_PWM_Config(void)
 	                    | 0 << TCA_SINGLE_CMP0EN_bp      /* Compare 0 Enable: disabled */
 	                    | 0 << TCA_SINGLE_CMP1EN_bp      /* Compare 1 Enable: disabled */
 	                    | 0 << TCA_SINGLE_CMP2EN_bp      /* Compare 2 Enable: disabled */ 
-						| TCA_SINGLE_WGMODE_SINGLESLOPE_gc; /*  */
+						| TCA_SINGLE_WGMODE_SINGLESLOPE_gc; /* Single Slope PWM */
  
 	TCA0.SINGLE.CMP0BUF = (uint16_t)(STEP_NewPeriod / 2); /* Compare Register 1: 0x10 */
 	TCA0.SINGLE.PERBUF = (uint16_t)(STEP_NewPeriod); /* Period*/
