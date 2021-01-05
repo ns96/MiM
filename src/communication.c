@@ -492,7 +492,7 @@ void communication_callback(void){
 /**
  * \brief Helper function for StepperMove implementation
  * \param MoveFun - pointer to required move function
- * \param a - pointer to received paramter 
+ * \param a - pointer to received parameter
  * \param Response - pointer to Response string
  */
 static void STEP_Move_Sub(uint32_t (*MoveFun)(uint32_t x), int * a, char * Response){

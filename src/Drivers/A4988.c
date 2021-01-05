@@ -52,7 +52,9 @@ uint8_t A4988_Init(void)
 //void STEP_PWM_Completed(void){
 ISR(TCA0_CMP0_vect) {
 
-    STEP_steps_moved++;
+    if (STEP_steps_requested > 0) {
+        STEP_steps_moved++;
+    }
 
 	//If limit switches are not pressed and more steps are requested
 	if ((CheckLimitSwitches() == LIMIT_SWITCH_OK) && (STEP_steps_requested - STEP_steps_moved)){
@@ -81,7 +83,7 @@ ISR(TCA0_CMP0_vect) {
  * \retval Returns steps to move
  */
 uint32_t STEP_Move(uint32_t Steps){
-	//Exit if limit swithes are pressed
+	//Exit if limit switches are pressed
 	if (CheckLimitSwitches() != LIMIT_SWITCH_OK) return 0;
 	
 	//Exit if motor is not in required state
@@ -238,7 +240,11 @@ STEP_OnOffTypeDef STEP_getReset(void){
  */
 uint8_t STEP_setFreq(uint32_t freq)
 {	
-	STEP_PWM_freq = freq;
+	if ((freq != 0) && (freq < STEP_PWM_MIN_FREQ)) {
+		STEP_PWM_freq = STEP_PWM_MIN_FREQ;
+	} else {
+		STEP_PWM_freq = freq;
+	}
 	return 1;
 }
 
@@ -388,7 +394,7 @@ static void STEP_PWM_Config(void)
 	uint32_t STEP_NewPeriod = STEP_PWM_TIMER_FREQ / STEP_PWM_freq;
 	STEP_PWM_Actual_freq = STEP_PWM_freq;
 
-	TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc /* System Clock / 2 */
+	TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV64_gc /* System Clock / 2 */
 			| 0 << TCA_SINGLE_ENABLE_bp /* Module Enable: disabled */;
 
 	TCA0.SINGLE.CTRLB = 0 << TCA_SINGLE_ALUPD_bp         /* Auto Lock Update: disabled */
@@ -406,7 +412,7 @@ static void STEP_PWM_Config(void)
                      | 0 << TCA_SINGLE_OVF_bp; /* Overflow Interrupt: disabled */
 
                     
-	TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV2_gc /* System Clock / 2 */
+	TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV64_gc /* System Clock / 2 */
                       | 1 << TCA_SINGLE_ENABLE_bp /* Module Enable: enabled */;
 					  
 }

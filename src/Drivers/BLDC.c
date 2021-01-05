@@ -41,7 +41,6 @@
 uint8_t BLDC_init(void){
 	BLDC_GPIO_Config();
 	TIM_PWM_Config();
-	TIM_FG_Config();
 	BLDC_SetDirection(BLDC_CLOCKWISE);
 	BLDC_powerOff();
 	BLDC_RPM_target=0;
@@ -239,10 +238,10 @@ uint8_t BLDC_RPM_control(void){
 uint8_t BLDC_powerOn(void){
 	FGPeriod = 0; //Reset value. It might be left unreset from previous operation if FGPeriod timer has not expired yet
 	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
-//	GPIO_SetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
 	BLDC_GPIO_Config();
 	TIM_PWM_Config();
 	TIM_FG_Config();
+	FG_Timer_Timeouts = 0;
 	BLDC_power = 1;
 	return 1;
 }
@@ -254,11 +253,18 @@ uint8_t BLDC_powerOff(void){
 	BLDC_RPM_target = 0;  //Request RPM = 0
 	Skip_FG_Pulse = true; //Ignore first FG pulse. Fake pulse is generated when motor's power is switched
 	
-//	GPIO_ResetBits(BLDC_POWER_GPIO_PORT,BLDC_POWER_PIN); //Set/Clear POWER PIN
 	BLDC_power = 0;
 	BLDC_setTimerPWM(0);				//Stop PWM generation
 	// Disable FG overflows timer
-	//FG_TIMER_OVERFLOWS.CTRLA &= ~(1 << TCB_ENABLE_bp);
+	FG_TIMER_OVERFLOWS.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
+	           | 0 << TCB_ENABLE_bp   /* Enable: disabled */
+			   | 0 << TCB_RUNSTDBY_bp /* Run Standby: disabled */
+	           | 0 << TCB_SYNCUPD_bp; /* Synchronize Update: disabled */
+	// Disable FG timer
+	FG_TIMER.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
+             | 0 << TCB_ENABLE_bp   /* Enable: disabled */
+			 | 0 << TCB_RUNSTDBY_bp /* Run Standby: disabled */
+	         | 0 << TCB_SYNCUPD_bp; /* Synchronize Update: disabled */
 	return 1;
 }
 
@@ -266,7 +272,6 @@ uint8_t BLDC_powerOff(void){
  * \brief Get status of BLDC motor power
  */
 uint8_t BLDC_getPower(void){
-//	return GPIO_ReadOutputDataBit(BLDC_POWER_GPIO_PORT, BLDC_POWER_PIN);
 	return BLDC_power;
 }
 
@@ -561,7 +566,7 @@ static void TIM_FG_Config(void)
 	FG_TIMER_OVERFLOWS.INTCTRL = 1 << TCB_CAPT_bp /* Capture or Timeout: enabled */;
 
     FG_TIMER_OVERFLOWS.CTRLA = TCB_CLKSEL_CLKDIV2_gc  /* CLK_PER/2 (From Prescaler) */
-	             | 1 << TCB_ENABLE_bp   /* Enable: disabled */
+	             | 1 << TCB_ENABLE_bp   /* Enable: enabled */
 	             | 0 << TCB_RUNSTDBY_bp /* Run Standby: disabled */
 	             | 0 << TCB_SYNCUPD_bp; /* Synchronize Update: disabled */
 				 

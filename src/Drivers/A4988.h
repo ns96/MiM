@@ -6,9 +6,9 @@
 
 //-------------- STEP motor control -------------
 
-#define STEP_PWM_CLOCK_BASE	8000000	//timer base clock frequency
+#define STEP_PWM_CLOCK_BASE	250000	//timer base clock frequency
 #define STEP_PWM_TIMER_FREQ	STEP_PWM_CLOCK_BASE 					//TIMx PWM timer frequency
-#define STEP_PWM_MIN_FREQ		2								//Minimum allowed PWM frequency. Must be higher than STEP_TIMER_FREQ / 0xFFFF
+#define STEP_PWM_MIN_FREQ		4								//Minimum allowed PWM frequency. Must be higher than STEP_TIMER_FREQ / 0xFFFF
 #define STEP_PWM_MAX_FREQ		50000 					//Max allowed PWM frequency. Should not exceed STEP_TIMER_FREQ / 2.
 #define STEP_DEF_FREQ				200 						//Default PWM frequency
 #define STEP_DEF_STEPS_PER_DIST	2400 				//Default steps per Distance value
@@ -22,7 +22,7 @@ extern "C" {
 		STEP_COUNTER_CLOCKWISE = 1,
 		STEP_CLOCKWISE = 2
 	} STEP_DirectionTypeDef;
-	
+
 	typedef enum {
 		STEP_OFF = 0,
 		STEP_ON = 1
