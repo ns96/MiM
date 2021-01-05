@@ -20,7 +20,7 @@ volatile uint8_t UART_cmd_buff[CMD_BUFF_SIZE];
 
 
 //---------------  Internal functions prototypes -------------------
-static void STEP_Move_Sub(uint32_t (*MoveFun)(uint32_t x), int * a, char * Response);
+static void STEP_Move_Sub(uint32_t (*MoveFun)(uint32_t x), int32_t * a, char * Response);
 
 /**
  * \brief Print command/response with CRC attached
@@ -69,7 +69,8 @@ void comm_receivedByte(uint8_t received)
 }
 
 void communication_callback(void){
-	int a = 0, CRC_received = 0;
+    int32_t a = 0;
+    uint16_t CRC_received = 0;
 	uint16_t CmdLength = 0, c = 0;
 	uint8_t CRC_calc = 0;
 	char Response[CMD_BUFF_SIZE];
@@ -92,7 +93,7 @@ void communication_callback(void){
 		//printf("CRC_calc:%X\r\n", CRC_calc);
 		
 		//Continue if CRC is received and is correct or CRC check is disabled
-		if(((sscanf((void*)&UART_cmd_buff[c + 1],"%X",&CRC_received) == 1) && (CRC_received == CRC_calc)) ||
+		if(((sscanf((void*)&UART_cmd_buff[c + 1],"%02X",&CRC_received) == 1) && (CRC_received == CRC_calc)) ||
 			(USE_CRC < 2)){
 			/* **********************************************************************
 			 *													General
@@ -121,9 +122,9 @@ void communication_callback(void){
 			else
 			//------------------------- Set RPM ----------------------------------------
 			if cmd_is(UART_CMD_BLDCSetRPM){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetRPM)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetRPM)-1],",%ld",&a)==1){
 					if (BLDC_setRPM(a) == 1)
-						sprintf(Response, "OK,%d",a);
+						sprintf(Response, "OK,%ld",a);
 					else 
 						sprintf(Response, "ERR,%d", CMD_INVALID_STATE);
 					comm_print_cmd(Response);
@@ -143,12 +144,12 @@ void communication_callback(void){
 			else
 			//------------------------- Set PWM ----------------------------------------
 			if cmd_is(UART_CMD_BLDCSetPWM){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetPWM)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetPWM)-1],",%ld",&a)==1){
 					if (a > 1000)
 						sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
 					else {	
 						if (BLDC_setPWM(a) == 1)
-							sprintf(Response, "OK,%d",a);
+							sprintf(Response, "OK,%ld",a);
 						else 
 							sprintf(Response, "ERR,%d", CMD_INVALID_STATE);
 					}
@@ -169,9 +170,9 @@ void communication_callback(void){
 			else
 			//------------------------- Set StartupPWM ----------------------------------------
 			if cmd_is(UART_CMD_BLDCSetStartPWM){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetStartPWM)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetStartPWM)-1],",%ld",&a)==1){
 					if (BLDC_setStartupPWM(a) == 1)
-						sprintf(Response, "OK,%d",a);
+						sprintf(Response, "OK,%ld",a);
 					else 
 						sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
 					comm_print_cmd(Response);
@@ -191,9 +192,9 @@ void communication_callback(void){
 			else
 			//------------------------- Set Slope ----------------------------------------
 			if cmd_is(UART_CMD_BLDCSetSlope){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetSlope)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetSlope)-1],",%ld",&a)==1){
 					BLDC_setSlope(a);
-					sprintf(Response, "OK,%d",a);
+					sprintf(Response, "OK,%ld",a);
 					comm_print_cmd(Response);
 				}
 				else
@@ -211,9 +212,9 @@ void communication_callback(void){
 			else
 			//------------------------- Set Intercept ----------------------------------------
 			if cmd_is(UART_CMD_BLDCSetIntercept){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetIntercept)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_BLDCSetIntercept)-1],",%ld",&a)==1){
 					BLDC_setIntercept(a);
-					sprintf(Response, "OK,%d",a);
+					sprintf(Response, "OK,%ld",a);
 					comm_print_cmd(Response);
 				}
 				else
@@ -246,16 +247,16 @@ void communication_callback(void){
 			else
 			//------------------------- Set Motor Direction ----------------------------------------		
 			if cmd_is(UART_CMD_SetDIR){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_SetDIR)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_SetDIR)-1],",%ld",&a)==1){
 					switch (a){
 						case 0:
 							BLDC_SetDirection(BLDC_COUNTER_CLOCKWISE);
-							sprintf(Response, "OK,%d", a);
+							sprintf(Response, "OK,%ld", a);
 							comm_print_cmd(Response);
 							break;
 						case 1:
 							BLDC_SetDirection(BLDC_CLOCKWISE);
-							sprintf(Response, "OK,%d", a);
+							sprintf(Response, "OK,%ld", a);
 							comm_print_cmd(Response);
 							break;
 						default:
@@ -283,9 +284,9 @@ void communication_callback(void){
 			else
 			//------------------------- Set freq ----------------------------------------
 			if cmd_is(UART_CMD_STEPSetFreq){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPSetFreq)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPSetFreq)-1],",%ld",&a)==1){
 					STEP_setFreq(a);
-					sprintf(Response, "OK,%d",a);
+					sprintf(Response, "OK,%ld",a);
 					comm_print_cmd(Response);
 				}
 				else
@@ -303,9 +304,9 @@ void communication_callback(void){
 			else
 			//------------------------- Set Steps per Dist ----------------------------------------
 			if cmd_is(UART_CMD_STEPSetStepsPDist){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPSetStepsPDist)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPSetStepsPDist)-1],",%ld",&a)==1){
 					STEP_setStepPDist(a);
-					sprintf(Response, "OK,%d",a);
+					sprintf(Response, "OK,%ld",a);
 					comm_print_cmd(Response);
 				}
 				else
@@ -323,10 +324,10 @@ void communication_callback(void){
 			else
 			//------------------------- Set microstepping mode ----------------------------------------
 			if cmd_is(UART_CMD_STEPSetMicro){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPSetMicro)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPSetMicro)-1],",%ld",&a)==1){
 					if (a <= STEP_SIXTEENTH){
 						STEP_MicroSet((STEP_MicroModeTypeDef)a);
-						sprintf(Response, "OK,%d", a);
+						sprintf(Response, "OK,%ld", a);
 						comm_print_cmd(Response);
 					} else {
 						sprintf(Response, "ERR,%d", CMD_INVALID_PARAMETER);
@@ -342,13 +343,13 @@ void communication_callback(void){
 			else
 			//------------------------- Get microstepping mode ----------------------------------------
 			if cmd_is(UART_CMD_STEPGetMicro){
-					sprintf(Response, "OK,%d",(uint8_t)STEP_MicroGet());
+					sprintf(Response, "OK,%d", STEP_MicroGet());
 					comm_print_cmd(Response);
 			}
 			else
 			//------------------------- Move UP ----------------------------------------
 			if cmd_is(UART_CMD_STEPMoveUp){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPMoveUp)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPMoveUp)-1],",%ld",&a)==1){
 					STEP_SetDirection(STEP_CLOCKWISE);
 					STEP_Move_Sub(STEP_Move, &a, Response);
 				}
@@ -361,7 +362,7 @@ void communication_callback(void){
 			else
 			//------------------------- Move DOWN ----------------------------------------
 			if cmd_is(UART_CMD_STEPMoveDown){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPMoveDown)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPMoveDown)-1],",%ld",&a)==1){
 					STEP_SetDirection(STEP_COUNTER_CLOCKWISE);
 					STEP_Move_Sub(STEP_Move, &a, Response);
 				}
@@ -374,7 +375,7 @@ void communication_callback(void){
 			else
 			//------------------------- Move UP Dist ----------------------------------------
 			if cmd_is(UART_CMD_STEPMoveUpDist){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPMoveUpDist)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPMoveUpDist)-1],",%ld",&a)==1){
 					STEP_SetDirection(STEP_CLOCKWISE);
 					STEP_Move_Sub(STEP_MoveDist, &a, Response);
 				}
@@ -387,7 +388,7 @@ void communication_callback(void){
 			else
 			//------------------------- Move DOWN Dist ----------------------------------------
 			if cmd_is(UART_CMD_STEPMoveDownDist){
-				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPMoveDownDist)-1],",%d",&a)==1){
+				if(sscanf((void*)&UART_cmd_buff[sizeof(UART_CMD_STEPMoveDownDist)-1],",%ld",&a)==1){
 					STEP_SetDirection(STEP_COUNTER_CLOCKWISE);
 					STEP_Move_Sub(STEP_MoveDist, &a, Response);
 				}
@@ -403,7 +404,7 @@ void communication_callback(void){
 				STEP_DirectionTypeDef Direction;
 				uint32_t Steps_moved, Steps_requested;
 				STEP_getStatus(&Direction, &Steps_moved, &Steps_requested);
-				sprintf(Response, "OK,%d,%ld,%ld", (uint8_t)Direction, Steps_moved, Steps_requested);
+				sprintf(Response, "OK,%d,%ld,%ld", Direction, Steps_moved, Steps_requested);
 				comm_print_cmd(Response);
 			}
 			
@@ -495,13 +496,13 @@ void communication_callback(void){
  * \param a - pointer to received parameter
  * \param Response - pointer to Response string
  */
-static void STEP_Move_Sub(uint32_t (*MoveFun)(uint32_t x), int * a, char * Response){
-		int request = *a; //save requested value
+static void STEP_Move_Sub(uint32_t (*MoveFun)(uint32_t x), int32_t * a, char * Response){
+        int32_t request = *a; //save requested value
 	
 		*a = MoveFun(*a);
 		//If no steps were requested OR steps requested and motor moved
 		if ((request == 0) || (*a != 0)) 
-			sprintf(Response, "OK,%d",*a);
+			sprintf(Response, "OK,%ld",*a);
 		//Steps were requested, but invalid state was returned
 		else 
 			sprintf(Response, "ERR,%d", CMD_INVALID_STATE);
