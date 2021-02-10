@@ -243,6 +243,10 @@ uint8_t BLDC_powerOn(void){
 	TIM_FG_Config();
 	FG_Timer_Timeouts = 0;
 	BLDC_power = 1;
+	
+	// Set the speed to zero here, otherwise the motor will timeout after 20 seconds and won't spin even when PWM is supplied.
+	BLDC_setRPM(0);
+	
 	return 1;
 }
 
