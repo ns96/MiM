@@ -18,7 +18,7 @@ MiM firmware for Arduino Nano Every board.
 | BLDC_FG (green wire) | D2 | D2 |
 | BLDC_DIR (yellow wire) | D8 | D8 |
 | XY_XPWM_PWM (1khz) | D3 | A6 |
-| RX/TX | RX/TX | N/A |
+| RX/TX | RX/TX | RX/TX |
 | Stepper Driver EN | D10 | D8 |
 | Stepper Driver STEP | D11 | D7 |
 | Stepper Driver DIR | D12 | D4 |
