@@ -15,7 +15,7 @@ extern "C" {
 }
 #endif
 	
-	#define CMD_VERSION		"MIM 1.0.0"	//Version string
+	#define CMD_VERSION		"MIM-nano 1.0.3"	//Version string
 	
 	#define CRC_SEPARATOR	':' //This character separates CRC data from command
 	#define CMD_BUFF_SIZE	64  //Size of buffers of received and printed commands (currently print serial is longest response)

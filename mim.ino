@@ -43,7 +43,7 @@ void setup() {
   Serial.begin(19200);
   Serial1.setTimeout(125);
   Serial1.begin(19200);
-  Serial.println("MiM-nano version 1.0.3");
+  Serial.println(CMD_VERSION);
   
   BLDC_init();
   A4988_Init();
