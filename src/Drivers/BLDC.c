@@ -4,6 +4,7 @@
 #include "LED.h"
 #include <stdbool.h>
 #include <stdlib.h>
+#include "../board.h"
 
 //-------------- private variables -------------
 	static volatile bool RPM_Adjust_requested = false, BLDC_Startup_Mode = false, Skip_FG_Pulse = false, BLDC_power = 0;
@@ -60,7 +61,7 @@ void BLDC_FG_PulseMissing(void){
 	//Stop blinking LED
 	LED_Set(LED_GREEN, LED_OFF);
 	//Is the motor supposed to be running?
-	if (TCA0.SINGLE.CMP0 < 1000){
+	if (BLDC_CMP < 1000){
 		//Increment motor halted timer. 
 		//No signs of motor spinning for ~10seconds?
 		if (++motorHalted_cnt>10){
@@ -184,7 +185,7 @@ uint8_t BLDC_RPM_control(void){
 			uint16_t	Step;
 			int64_t 	Difference = 0;
 			//Get current PWM parameter
-			int64_t PWM_Pulse = 1000 - TCA0.SINGLE.CMP0BUF;
+			int64_t PWM_Pulse = 1000 - BLDC_CMPBUF;
 						
 			//Calculate RPM difference
 			Difference = BLDC_RPM_target - RPM_Act;
@@ -222,7 +223,7 @@ uint8_t BLDC_RPM_control(void){
 				}
 			}
 			//Set new PWM parameter
-			TCA0.SINGLE.CMP0BUF = (uint16_t) (1000 - PWM_Pulse);
+			BLDC_CMPBUF = (uint16_t) (1000 - PWM_Pulse);
 		}
 	}
 	return 1;
@@ -346,7 +347,7 @@ uint32_t BLDC_getPWM(){
 	uint32_t Pulse, Period;
 	
 	Period = BLDC_PWM_TIMER_FREQ / BLDC_PWM_FREQ;
-	Pulse = (1000 - TCA0.SINGLE.CMP0);
+	Pulse = (1000 - BLDC_CMP);
 	Duty = (uint32_t)((Pulse * 1000) / Period);
 	return Duty;
 }
@@ -495,14 +496,14 @@ static uint8_t BLDC_setTimerPWM(uint32_t pwm){
 	if (BLDC_getPower() == 0) {
 		//Stop PWM
 		//disable output
-		TCA0.SINGLE.CTRLB &= ~(1 << TCA_SINGLE_CMP0EN_bp);
+		TCA0.SINGLE.CTRLB &= ~(1 << BLDC_CMPEN_BP);
 		return 0;
 	}
 	
-	TCA0.SINGLE.CMP0BUF = (uint16_t) (1000 - pwm);
+	BLDC_CMPBUF = (uint16_t) (1000 - pwm);
 	//enable output if disabled
-	if ((TCA0.SINGLE.CTRLB & (1 << TCA_SINGLE_CMP0EN_bp)) == 0){
-		TCA0.SINGLE.CTRLB |= (1 << TCA_SINGLE_CMP0EN_bp);
+	if ((TCA0.SINGLE.CTRLB & (1 << BLDC_CMPEN_BP)) == 0){
+		TCA0.SINGLE.CTRLB |= (1 << BLDC_CMPEN_BP);
 	}
 
 	return 1;
@@ -594,7 +595,7 @@ static void TIM_PWM_Config(void)
 	                    | 0 << TCA_SINGLE_CMP2EN_bp      /* Compare 2 Enable: disabled */
 	                    | TCA_SINGLE_WGMODE_SINGLESLOPE_gc; /*  */
 	
-	TCA0.SINGLE.CMP0BUF = (1000 - CCR_Val); /* Compare Register 0: 0x10 */
+	BLDC_CMPBUF = (1000 - CCR_Val); /* Compare Register 0: 0x10 */
 	TCA0.SINGLE.PER = (uint16_t)(BLDC_PWM_TIMER_FREQ / BLDC_PWM_FREQ); /* Period: 0x3e8 */
 
     TCA0.SINGLE.INTCTRL = 0 << TCA_SINGLE_CMP0_bp   /* Compare 0 Interrupt: disabled */

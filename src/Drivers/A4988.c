@@ -3,6 +3,7 @@
 #include "A4988.h"
 #include "LED.h"
 #include "LimitSW.h"
+#include "../board.h"
 
 //-------------- private variables -------------
 static volatile uint32_t	STEP_steps_requested = 0, STEP_steps_moved = 0;	//Steps requested and moved
@@ -49,8 +50,7 @@ uint8_t A4988_Init(void)
  * \brief One STEP pulse completed, make one more step if required
  * 				Must be called in corresponding Period Elapsed interrupt
  */
-//void STEP_PWM_Completed(void){
-ISR(TCA0_CMP0_vect) {
+ISR(STEP_ISR) {
 
     if (STEP_steps_requested > 0) {
         STEP_steps_moved++;
@@ -70,7 +70,7 @@ ISR(TCA0_CMP0_vect) {
 		STEP_Stop();
 	}
 	/* The interrupt flag has to be cleared manually */
-	TCA0.SINGLE.INTFLAGS = TCA_SINGLE_CMP0_bm;
+	TCA0.SINGLE.INTFLAGS = STEP_INTFLAG;
 }
 
 /** *****************************************
@@ -172,7 +172,7 @@ uint8_t STEP_enableOff(void){
 	TCA0.SINGLE.INTCTRL = 0 << TCA_SINGLE_CMP0_bp   /* Compare 0 Interrupt: disabled */
                      | 0 << TCA_SINGLE_CMP1_bp /* Compare 1 Interrupt: disabled */
                      | 0 << TCA_SINGLE_CMP2_bp /* Compare 2 Interrupt: disabled */
-                     | 0 << TCA_SINGLE_OVF_bp; /* Overflow Interrupt: enabled */
+                     | 0 << TCA_SINGLE_OVF_bp; /* Overflow Interrupt: disabled */
 	return 1;
 }
 
@@ -323,11 +323,11 @@ static uint8_t STEP_Set_Timer_PWM(uint32_t freq){
 
 		//Set PWM frequency with 50% duty
 		//refresh frequency when pin is low (phase 2)
-		TCA0.SINGLE.CMP0BUF = (uint16_t)(STEP_NewPeriod / 2); /* Compare Register 1: 0x10 */
+		STEP_CMPBUF = (uint16_t)(STEP_NewPeriod / 2); /* Compare Register 1: 0x10 */
 		TCA0.SINGLE.PERBUF = (uint16_t)(STEP_NewPeriod); /* Period*/
 		//enable output if disabled
-		if ((TCA0.SINGLE.CTRLB & (1 << TCA_SINGLE_CMP0EN_bp)) == 0){
-			TCA0.SINGLE.CTRLB |= (1 << TCA_SINGLE_CMP0EN_bp);
+		if ((TCA0.SINGLE.CTRLB & (1 << STEP_CMP_BP)) == 0){
+			TCA0.SINGLE.CTRLB |= (1 << STEP_CMP_BP);
 		}
 		
 		return 1;
@@ -342,7 +342,7 @@ static void STEP_Stop(void){
 		STEP_steps_requested = 0;
 		STEP_steps_moved = 0;
 		//disable output
-		TCA0.SINGLE.CTRLB &= ~(1 << TCA_SINGLE_CMP0EN_bp);
+		TCA0.SINGLE.CTRLB &= ~(1 << STEP_CMP_BP);
 		//Turn off LED
 		LED_Set(LED_GREEN, LED_OFF);
 }
@@ -403,14 +403,15 @@ static void STEP_PWM_Config(void)
 	                    | 0 << TCA_SINGLE_CMP2EN_bp      /* Compare 2 Enable: disabled */ 
 						| TCA_SINGLE_WGMODE_SINGLESLOPE_gc; /* Single Slope PWM */
  
-	TCA0.SINGLE.CMP0BUF = (uint16_t)(STEP_NewPeriod / 2); /* Compare Register 1: 0x10 */
+	STEP_CMPBUF = (uint16_t)(STEP_NewPeriod / 2); /* Compare Register 1: 0x10 */
 	TCA0.SINGLE.PERBUF = (uint16_t)(STEP_NewPeriod); /* Period*/
 
-	TCA0.SINGLE.INTCTRL = 1 << TCA_SINGLE_CMP0_bp   /* Compare 0 Interrupt: enabled */
+	TCA0.SINGLE.INTCTRL = 0 << TCA_SINGLE_CMP0_bp   /* Compare 0 Interrupt: disabled */
                      | 0 << TCA_SINGLE_CMP1_bp /* Compare 1 Interrupt: disabled */
                      | 0 << TCA_SINGLE_CMP2_bp /* Compare 2 Interrupt: disabled */
                      | 0 << TCA_SINGLE_OVF_bp; /* Overflow Interrupt: disabled */
 
+    TCA0.SINGLE.INTCTRL |= (1 << STEP_INTCTRL_BP); /* Enable Interrupt */
                     
 	TCA0.SINGLE.CTRLA = TCA_SINGLE_CLKSEL_DIV64_gc /* System Clock / 2 */
                       | 1 << TCA_SINGLE_ENABLE_bp /* Module Enable: enabled */;

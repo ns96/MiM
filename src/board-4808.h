@@ -14,6 +14,10 @@
 #define BLDC_PWM_PORTMUX		PORTMUX_TCA0_PORTD_gc	////route PWM ouput to pd0 (A0)
 #define FG_TIMER_OVERFLOWS TCB1
 
+#define BLDC_CMP                TCA0.SINGLE.CMP0
+#define BLDC_CMPBUF             TCA0.SINGLE.CMP0BUF
+#define BLDC_CMPEN_BP           TCA_SINGLE_CMP0EN_bp
+
 /*****************************************************************
  * @brief Definition for STEP motor pins and timers
  *****************************************************************/ 
@@ -21,6 +25,12 @@
 #define STEP_DIR_PIN			12 //D12	
 #define STEP_PWM_PIN			11 //D11
 #define STEP_PWM_PORTMUX		PORTMUX_TCA0_PORTC_gc	////route PWM ouput to PC0 (D11)
+
+#define STEP_ISR                TCA0_CMP0_vect
+#define STEP_INTFLAG            TCA_SINGLE_CMP0_bm
+#define STEP_CMPBUF             TCA0.SINGLE.CMP0BUF
+#define STEP_CMP_BP             TCA_SINGLE_CMP0EN_bp
+#define STEP_INTCTRL_BP         TCA_SINGLE_CMP0_bp
 
 /*****************************************************************
  * @brief Definition for SWITCH and GP input pins

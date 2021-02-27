@@ -8,7 +8,8 @@ MiM firmware for Arduino Nano Every board.
 2. Open sketch in the IDE
 3. Select Tools -> Board -> Arduino megaAVR boards -> Arduino Nano Every
 4. Disable Registers emulation: Tools -> Registers Emulation -> None
-5. Compile sketch (no additional libraries needed)
+5. To use Keyestudio Shield pinout uncomment USEKEYESTUDIO_BOARD it in src/board.h
+6. Compile sketch (no additional libraries needed)
 
 ## Pinout
 
@@ -24,6 +25,6 @@ MiM firmware for Arduino Nano Every board.
 | Stepper Driver DIR | D12 | D4 |
 | Limit Switch 1 | A0 | D10 |
 | Limit Switch 2 | A1 | D11 |
-| Red LED | D4 | A1 |
-| Green LED | D5 | A2 |
-| Blue LED | D6 | A3 |
+| Red LED | D4 | A0 |
+| Green LED | D5 | A1 |
+| Blue LED | D6 | A2 |
