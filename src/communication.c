@@ -234,6 +234,7 @@ void communication_callback(void){
 			if cmd_is(UART_CMD_BLDCon){
 					XYEnabled = 0;
 					BLDC_powerOn();
+                    BLDC_SetDirection(BLDC_CLOCKWISE);
 					sprintf(Response, "OK,%d", CMD_OK);
 					comm_print_cmd(Response);
 			}	
